@@ -39,6 +39,12 @@ export default function Inicio() {
         <BotonGrande etiqueta="Medicamentos" onPress={() => router.push('/medicamentos')} />
         <BotonGrande etiqueta="Controles" onPress={() => router.push('/controles')} />
         <BotonGrande etiqueta="Mi plan" onPress={() => router.push('/plan')} />
+        {/* En rojo a propósito: es la pantalla a la que uno corre. */}
+        <BotonGrande
+          etiqueta="Alertas"
+          tono="emergencia"
+          onPress={() => router.push('/alertas')}
+        />
       </View>
 
       <Pressable

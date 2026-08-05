@@ -24,6 +24,7 @@ export default function RootLayout() {
         <Stack.Screen name="medicamentos" options={{ title: 'Medicamentos' }} />
         <Stack.Screen name="controles" options={{ title: 'Controles' }} />
         <Stack.Screen name="plan" options={{ title: 'Mi plan' }} />
+        <Stack.Screen name="alertas" options={{ title: 'Alertas' }} />
         <Stack.Screen name="chat" options={{ title: 'Conversar' }} />
         <Stack.Screen name="configuracion" options={{ title: 'Configuración' }} />
       </Stack>

@@ -156,6 +156,41 @@ export const planCuidado: ItemPlan[] = [
 
 export const FUENTE_PLAN = 'Contenido de ejemplo · MOCK — pendiente de validación profesional';
 
+/**
+ * Signos de alarma — qué debe hacer consultar de inmediato.
+ *
+ * ⚠️ CONTENIDO CLÍNICO. Corresponde a PD-05 (Joaquín) y hoy son ejemplos.
+ * El agente nunca interpreta un síntoma: esta pantalla informa y deriva.
+ */
+export const signosAlarma: string[] = [
+  'Dolor en el pecho.',
+  'Dificultad para respirar.',
+  'Pérdida de fuerza o dificultad para hablar.',
+  'Fiebre alta que no cede.',
+  'Cualquier cosa distinta a lo que su equipo le dijo que esperara.',
+];
+
+export type Aviso = {
+  id: string;
+  fecha: string;
+  motivo: string;
+  revisado: boolean;
+};
+
+/**
+ * Avisos que el sistema envió al equipo de salud sobre esta persona.
+ *
+ * El `motivo` cita el criterio que lo gatilló, nunca interpreta ni diagnostica.
+ * Y ningún aviso es un reproche: el sistema acompaña, no fiscaliza.
+ *
+ * `revisado` refleja que un humano lo validó — una alerta no se cierra sola.
+ */
+export const avisos: Aviso[] = [
+  { id: 'a1', fecha: 'Hoy, 09:14', motivo: 'Usted contó que le dolía el pecho.', revisado: false },
+  { id: 'a2', fecha: '28 de julio', motivo: 'Pasaron 15 días sin que conversáramos.', revisado: true },
+  { id: 'a3', fecha: '12 de julio', motivo: 'No asistió al control programado.', revisado: true },
+];
+
 export const conversacion: Mensaje[] = [
   { id: 'x0', de: 'agente', texto: PREGUNTA_DIARIA, respuestas: RESPUESTAS_DIARIAS },
   { id: 'x2', de: 'paciente', texto: 'Ando como cansado y se me olvidó el remedio dos veces' },
