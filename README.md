@@ -72,20 +72,112 @@ verifica. Esta frontera hace comprobable el Principio VI.
 
 ---
 
+## Stack
+
+| Capa | Tecnología |
+|------|-----------|
+| Backend | Python 3.11+, FastAPI, LangGraph |
+| Interfaz clínica (dupla gestora) | React |
+| App paciente | React Native + Expo |
+| Datos | Supabase (PostgreSQL) + pgvector |
+| Embeddings | Voyage 4 — `voyage-4-large` (biblioteca clínica), `voyage-4-lite` (memoria y consultas) |
+| Modelo | Claude (API de Anthropic) |
+
 ## Arranque rápido
 
+Orden real de dependencias — cada paso asume el anterior hecho.
+
+### 1. Clonar y configurar
+
 ```bash
-# Verificar la estratificación determinista
-python3 src/core/estratificacion.py
+git clone <url-del-repo>
+cd apheleia
 
-# Generar cohorte sintética (200 pacientes por defecto)
-python3 src/data/seed_sintetico.py 200
-
-# Correr tests
-python3 tests/test_estratificacion.py
+cp .env.example .env
+# completar: ANTHROPIC_API_KEY, VOYAGE_API_KEY, SUPABASE_URL, SUPABASE_KEY
 ```
 
-Base de datos: aplicar `src/data/schema.sql` en Supabase.
+### 2. Backend (Python)
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 3. Base de datos
+
+```bash
+# Aplicar el schema en el proyecto Supabase (SQL editor o psql)
+psql "$SUPABASE_URL" -f src/data/schema.sql
+```
+
+### 4. Verificar que todo quedó bien
+
+```bash
+python3 scripts/verificar_setup.py
+```
+
+Comprueba rama de git, variables de entorno, dependencias e imports internos.
+**Si reporta errores, corrígelos antes de seguir** — son los problemas que rompen
+el arranque más adelante de forma confusa.
+
+### 5. Datos de arranque
+
+```bash
+# Verificar la estratificación determinista (no requiere BD ni API keys)
+python3 src/core/estratificacion.py
+python3 tests/test_estratificacion.py
+
+# Generar cohorte sintética
+python3 src/data/seed_sintetico.py 200
+# → falta el loader que la inserta en Supabase (tasks.md, T010)
+
+# Cargar biblioteca clínica MOCK (requiere VOYAGE_API_KEY + Supabase con schema aplicado)
+python3 src/data/seed_biblioteca_mock.py
+```
+
+### 6. Probar el flujo de agente end-to-end
+
+```bash
+# Requiere ANTHROPIC_API_KEY + biblioteca cargada (paso 5)
+python3 src/agents/conversacion_minima.py
+```
+
+### 7. Frontends
+
+`web/` y `mobile/` son landing zones — ver el `README.md` de cada carpeta.
+Jonathan está construyendo ambos proyectos por separado; una vez integrados
+(scaffold de Vite/similar en `web/`, scaffold de Expo en `mobile/`):
+
+```bash
+# Interfaz clínica (React)
+cd web && npm install && npm run dev
+
+# App paciente (React Native + Expo)
+cd mobile && npm install && npx expo start
+```
+
+Ambos consumen los endpoints documentados en
+[`contracts/tools.md`](specs/001-continuidad-cuidado/contracts/tools.md) — pueden
+construirse contra ejemplos JSON del contrato antes de que el backend esté listo,
+sin esperar a que ninguna de las dos piezas exista primero.
+
+### 8. Tu rama de trabajo
+
+Ver [`docs/FLUJO-GIT.md`](docs/FLUJO-GIT.md) — una rama por vértice, no por
+persona.
+
+```bash
+git checkout -b 001-continuidad-cuidado/<tu-vertice>
+```
+
+### 9. Qué hacer primero
+
+Ver [`specs/001-continuidad-cuidado/tasks.md`](specs/001-continuidad-cuidado/tasks.md)
+para la lista completa. La Fase 2 (Foundational) bloquea todo lo demás — hasta que
+`v_bandeja_clinica` devuelva datos reales, las historias de usuario no pueden
+avanzar en paralelo.
 
 ---
 
@@ -114,6 +206,10 @@ del trabajo de cada persona.
 - Estratificación ECICEP determinista, con tests
 - Generador de cohorte sintética
 - Bloque de guardrails para system prompts
+- RAG con Voyage 4 (dos tiers) + prompt caching por tramo, resuelto PD-11
+- Camino vertical mínimo: biblioteca mock + Claude real funcionando end-to-end
+  (`src/agents/conversacion_minima.py`)
+- Plan de tareas (`tasks.md`) y flujo git por vértice (`docs/FLUJO-GIT.md`)
 
 **Pendiente de definición** — ver tabla en [`spec.md`](specs/001-continuidad-cuidado/spec.md):
 
@@ -123,6 +219,9 @@ del trabajo de cada persona.
 | PD-06 | Matriz de priorización de la bandeja | Gerardo |
 | PD-07 | Distribución de la cohorte sintética | Patricio + Joaquín |
 | PD-08…10 | Orquestación de agentes, máquina de estados como tool, uso de modelo capaz | Patricio |
+
+Ninguno de estos bloquea el arranque — ver `tasks.md` Fase 5A: se construye con
+mock y se reemplaza el contenido cuando lleguen las definiciones.
 
 ---
 

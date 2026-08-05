@@ -22,10 +22,14 @@ de esto debería filtrarse entre pacientes de todas formas).
 
 from dataclasses import dataclass
 
+from pathlib import Path
+
 from src.rag.perfil import ContextoRecuperado
 
-with open("src/agents/prompts/base_guardrails.md", encoding="utf-8") as f:
-    GUARDRAILS_BASE = f.read()
+# Ruta derivada de la ubicación de ESTE archivo, no del directorio de
+# ejecución — así funciona sin importar desde dónde se invoque.
+_RUTA_GUARDRAILS = Path(__file__).parent / "prompts" / "base_guardrails.md"
+GUARDRAILS_BASE = _RUTA_GUARDRAILS.read_text(encoding="utf-8")
 
 
 @dataclass

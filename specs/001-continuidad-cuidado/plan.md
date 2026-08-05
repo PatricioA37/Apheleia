@@ -19,14 +19,15 @@ redacción de alertas). El modelo entra donde aporta juicio, no en el camino de 
 
 ## Technical Context
 
-**Language/Version**: Python 3.11+ (backend, agentes) · TypeScript (interfaces)
+**Language/Version**: Python 3.11+ (backend, agentes) · TypeScript + React (interfaz
+clínica) · TypeScript + React Native/Expo (app paciente)
 
 **Primary Dependencies**:
 - Orquestación de agentes: **LangGraph**
 - Modelo: **Claude** (API de Anthropic) — motor principal, requisito del Lab
 - Backend: FastAPI
 - App paciente: **React Native + Expo**
-- Interfaz clínica: web (framework por definir)
+- Interfaz clínica: **React** (web)
 
 **Storage**: **Supabase (PostgreSQL)** · **pgvector** para el RAG del perfil del paciente
 
@@ -52,7 +53,9 @@ que la decisión debe tomarse antes de crear la tabla.
 tramos y los estados. El escalamiento poblacional es proyección documentada, no
 implementación.
 
-**Pendiente de stack**: modelo de embeddings (PD-11), framework de la interfaz clínica.
+**Stack confirmado**: Python (backend) · React (clínica) · React Native + Expo
+(paciente) · Supabase/pgvector (datos) · Voyage 4 (embeddings, PD-11 resuelto) ·
+LangGraph (orquestación) · Claude (motor de razonamiento).
 
 ---
 
@@ -121,8 +124,13 @@ mobile/                      # App paciente — React Native + Expo
 ├── components/
 └── lib/api.ts               # Cliente contra contracts/tools.md
 
-web/                         # Interfaz clínica (dupla gestora)
-└── bandeja/
+web/                         # Interfaz clínica — React (dupla gestora)
+├── src/
+│   ├── pages/ (o routes/)   # según router elegido
+│   │   ├── bandeja/         # US1 — pacientes por tramo y estado
+│   │   └── alertas/         # US5 — validación humana obligatoria
+│   ├── components/
+│   └── lib/api.ts           # Cliente contra contracts/tools.md
 
 specs/001-continuidad-cuidado/
 ├── spec.md

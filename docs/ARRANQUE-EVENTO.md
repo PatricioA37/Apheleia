@@ -98,7 +98,7 @@ demuestran el concepto.
 
 ## Coordinación
 
-- **Un solo repositorio.** Ramas por vértice. Los contratos viven en `main`.
+- **Un solo repositorio.** Ramas por vértice. Los contratos viven en `master`.
 - **Integración temprana**, no el último día.
 - Si un contrato debe cambiar: se actualiza en `contracts/tools.md` primero y se avisa.
 - Ante duda sobre un campo: se implementa el contrato tal como está escrito.

@@ -1,75 +1,182 @@
 # Flujo de trabajo — git + spec-kit
 
-## Convención de ramas
+## Antes de nada: verificar que el repo está bien configurado
 
-`main` (o `master`) contiene la **spec y los contratos**, siempre estables. Nadie
-implementa directo ahí.
+Ejecutar una vez al clonar. Si algo no coincide, corregirlo **antes** de trabajar.
 
-Una rama por vértice, no por persona — así el trabajo de Jonathan no bloquea el
-tuyo ni viceversa. Se nombran con el prefijo de la spec activa:
-
-```
-001-continuidad-cuidado/rag-agente       ← Patricio: RAG + biblioteca + chat
-001-continuidad-cuidado/interfaz-movil   ← Jonathan: React Native / Expo
-001-continuidad-cuidado/criterio-clinico ← Joaquín: planes, criterios (si él edita directo)
-001-continuidad-cuidado/priorizacion     ← Gerardo: matriz de la bandeja (si él edita directo)
+```bash
+git branch --show-current    # debe decir: master
+git remote -v                # debe apuntar al repo de GitHub del equipo
+git status                   # debe decir "working tree clean"
 ```
 
-Si Joaquín y Gerardo no van a tocar código directamente (lo más probable), sus
-insumos entran como archivos que Patricio o Jonathan incorporan — no necesitan
-rama propia. Ajusta según cómo trabaje cada uno.
+---
 
-## Comandos para arrancar (cada persona, una vez)
+## Modelo de ramas
+
+`master` contiene **la spec, los contratos y el código integrado**. Siempre debe estar
+en un estado que funcione. Nadie implementa directo ahí.
+
+Una rama por **vértice de trabajo**, no por persona — así el trabajo de una persona
+no bloquea al resto:
+
+| Rama | Vértice | Carpetas que toca |
+|------|---------|-------------------|
+| `001-continuidad-cuidado/rag-agente` | RAG, biblioteca, agentes | `src/rag/`, `src/agents/`, `src/graph/` |
+| `001-continuidad-cuidado/interfaz-movil` | App paciente | `mobile/` |
+| `001-continuidad-cuidado/interfaz-clinica` | Interfaz dupla gestora | `web/` |
+| `001-continuidad-cuidado/backend-api` | Endpoints, core, datos | `src/api/`, `src/core/`, `src/data/` |
+
+**Criterio de separación**: cada rama tiene su territorio de carpetas. Si dos ramas
+tocan el mismo archivo, es señal de que el trabajo está mal repartido — hay que
+hablarlo, no resolverlo con merge.
+
+Joaquín y Gerardo entregan insumos (planes, criterios, matriz de priorización) como
+contenido, no como código. No necesitan rama propia salvo que editen archivos
+directamente.
+
+---
+
+## Arrancar (cada persona, una vez)
+
+Reemplaza `<tu-vertice>` por el de la tabla de arriba. **No copies el nombre de la
+rama de otra persona.**
 
 ```bash
 git clone <url-del-repo>
 cd apheleia
 
-# Crear y moverse a tu rama de vértice
-git checkout -b 001-continuidad-cuidado/rag-agente
+# Verificar antes de empezar
+git branch --show-current      # master
+git status                     # clean
 
-# Trabajar, commitear seguido (commits chicos, no uno gigante al final)
-git add -A
-git commit -m "rag: cliente de embeddings con mock de biblioteca"
+# Crear tu rama de vértice desde master actualizado
+git pull
+git checkout -b 001-continuidad-cuidado/<tu-vertice>
 
-# Subir la rama
-git push -u origin 001-continuidad-cuidado/rag-agente
+# Subirla y dejarla vinculada al remoto
+git push -u origin 001-continuidad-cuidado/<tu-vertice>
 ```
 
-## Integrar contra `main`
+Ejemplos concretos:
 
 ```bash
-# Antes de integrar, traer lo último de main
-git checkout main
-git pull
-git checkout 001-continuidad-cuidado/rag-agente
-git merge main          # resolver conflictos si los hay, ojalá pocos porque
-                         # cada quien trabaja en su carpeta (src/rag/ vs mobile/)
+# Patricio
+git checkout -b 001-continuidad-cuidado/rag-agente
 
-# Cuando la pieza funciona, PR contra main (o merge directo si el equipo
-# prefiere velocidad sobre revisión en un hackathon de 2 días)
-git checkout main
-git merge 001-continuidad-cuidado/rag-agente
+# Jonathan (app paciente)
+git checkout -b 001-continuidad-cuidado/interfaz-movil
+
+# Jonathan (interfaz clínica — rama separada, se integra por separado)
+git checkout -b 001-continuidad-cuidado/interfaz-clinica
+```
+
+---
+
+## Ciclo de trabajo diario
+
+```bash
+# 1. Antes de empezar el día: traer lo último
+git checkout master
+git pull
+git checkout 001-continuidad-cuidado/<tu-vertice>
+git merge master
+
+# 2. Trabajar. Commitear seguido, commits chicos.
+git status                     # SIEMPRE mirar qué vas a agregar
+git add src/rag/embeddings.py  # agregar por archivo o carpeta, no 'git add -A' a ciegas
+git commit -m "rag: cliente de embeddings con los dos tiers de Voyage"
+
+# 3. Subir tu trabajo
 git push
 ```
 
-**Regla práctica para 2 días**: integrar seguido (cada 2-3 horas), no al final.
-La razón de que los contratos existan (`contracts/tools.md`) es evitar que la
-integración final sea un descubrimiento — debería ser un trámite.
+**Por qué no `git add -A` sin mirar**: arrastra archivos generados, `.env` mal
+ubicados, o cambios accidentales en carpetas de otro vértice. El `.gitignore` cubre
+lo predecible, pero `git status` antes de agregar toma dos segundos y evita
+sorpresas.
 
-## Si un contrato cambia a mitad de camino
+---
 
-1. Se actualiza `specs/001-continuidad-cuidado/contracts/tools.md` en `main` primero.
-2. Se avisa al equipo (mensaje corto: qué campo cambió y por qué).
-3. Quien esté trabajando contra ese contrato hace `git merge main` para recibir
-   el cambio y ajusta.
+## Integrar a `master`
 
-Nunca se cambia un contrato silenciosamente en una rama propia.
+Cuando tu pieza funciona y no rompe nada:
 
-## Qué NO mezclar en un commit
+```bash
+# 1. Actualizar tu rama con lo último de master y resolver conflictos EN TU RAMA
+git checkout master
+git pull
+git checkout 001-continuidad-cuidado/<tu-vertice>
+git merge master
+# ...resolver conflictos si los hay, verificar que sigue funcionando...
 
-- No mezclar cambios de `mobile/` con cambios de `src/`. Un commit, un vértice.
-- No commitear `.env`, `cohorte_sintetica.json` generado, ni `__pycache__`
-  (ya están en `.gitignore`).
-- No commitear datos con PII — no debería existir ninguno, pero es la
-  verificación de siempre antes de un `git push`.
+# 2. Recién ahora integrar a master
+git checkout master
+git merge 001-continuidad-cuidado/<tu-vertice>
+git push
+
+# 3. Volver a tu rama para seguir trabajando
+git checkout 001-continuidad-cuidado/<tu-vertice>
+```
+
+**El orden importa**: los conflictos se resuelven en tu rama, nunca en `master`. Si
+algo sale mal, `master` sigue intacto y solo tu rama queda a medias.
+
+En un evento de dos días, merge directo es aceptable en vez de Pull Request. Si
+prefieren PR para tener revisión, funciona igual — el paso 1 no cambia.
+
+---
+
+## Ritmo de integración
+
+**Integrar cada 2–3 horas, no al final del día.** La razón de que existan los
+contratos (`specs/001-continuidad-cuidado/contracts/tools.md`) es que la integración
+sea un trámite y no un descubrimiento.
+
+Checkpoints sugeridos: media mañana, después de almuerzo, media tarde, cierre.
+
+---
+
+## Si un contrato cambia
+
+1. Se actualiza `specs/001-continuidad-cuidado/contracts/tools.md` **en `master`** primero.
+2. Se avisa al equipo: qué campo cambió y por qué (mensaje corto basta).
+3. Quien trabaja contra ese contrato hace `git merge master` y ajusta.
+
+Nunca se cambia un contrato en silencio dentro de una rama propia — eso rompe a
+quien está construyendo contra él.
+
+---
+
+## Errores frecuentes y cómo evitarlos
+
+| Error | Síntoma | Prevención |
+|-------|---------|-----------|
+| Commitear en la rama equivocada | Trabajo de spec en rama de vértice, o al revés | `git branch --show-current` antes de commitear |
+| `git checkout master` falla | Estás en un clon con otra rama base | `git branch -a` para ver las ramas reales |
+| Merge con conflictos gigantes | No se integró en horas | Integrar cada 2–3 horas |
+| Subir `.env` con API keys | Keys expuestas en el repo | Ya está en `.gitignore`; verificar con `git status` |
+| Dos personas editan el mismo archivo | Conflictos constantes | Respetar el territorio de carpetas por vértice |
+
+**Si commiteaste en la rama equivocada** (pasa, y no es grave):
+
+```bash
+git log --oneline -1                              # copiar el hash del commit
+git checkout <rama-correcta>
+git cherry-pick <hash>
+git checkout <rama-equivocada>
+git reset --hard HEAD~1                           # ojo: borra el commit de ahí
+```
+
+---
+
+## Qué NO commitear
+
+- `.env` con claves reales (usar `.env.example` como plantilla)
+- `cohorte_sintetica.json` y otros archivos generados
+- `__pycache__/`, `node_modules/`, `.venv/`
+- Cualquier dato con PII — **no debería existir ninguno**, pero es la verificación
+  obligatoria antes de cada `git push`
+
+Todo lo anterior ya está en `.gitignore`. La verificación manual es la red de
+seguridad, no el mecanismo principal.
