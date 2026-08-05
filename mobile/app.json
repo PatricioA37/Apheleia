@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "web",
-    "slug": "web",
+    "name": "Apheleia",
+    "slug": "apheleia-paciente",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
