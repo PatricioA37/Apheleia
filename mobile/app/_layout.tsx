@@ -1,24 +1,34 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { color, type } from '@/theme/tokens';
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: 'index',
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+    <>
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: color.bg },
+          headerTintColor: color.accent,
+          headerTitleStyle: { color: color.ink, fontSize: type.heading, fontWeight: '700' },
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: color.bg },
+          headerBackTitle: 'Inicio',
+        }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="medicamentos" options={{ title: 'Medicamentos' }} />
+        <Stack.Screen name="controles" options={{ title: 'Controles' }} />
+        <Stack.Screen name="plan" options={{ title: 'Mi plan' }} />
+        <Stack.Screen name="chat" options={{ title: 'Conversar' }} />
+        <Stack.Screen name="configuracion" options={{ title: 'Configuración' }} />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+      {/* Paleta clara fija: la barra de estado va siempre en oscuro. */}
+      <StatusBar style="dark" />
+    </>
   );
 }
