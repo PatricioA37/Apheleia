@@ -241,21 +241,86 @@ principio se hace cumplir en la base de datos, no por convención.
 
 ---
 
-## Perfil vectorial (RAG)
+## Capa RAG — familia Voyage 4 (PD-11 resuelto)
 
-El perfil del paciente —tramo, condiciones, medicamentos vigentes, historial de
-estados— se embebe y almacena en pgvector para recuperación en la conversación.
+**Decisión**: `voyage-4-large` para la biblioteca clínica, `voyage-4-lite` para
+memoria del paciente y consultas en vivo. Dimensión: **1024** (default Matryoshka
+de la familia).
 
-**No es reentrenamiento.** El agente conoce al paciente porque recupera su perfil, no
-porque el modelo haya sido ajustado con sus datos.
+Voyage 4 comparte espacio vectorial entre todos sus modelos. Esto habilita
+**retrieval asimétrico**: el corpus se embebe una sola vez con el modelo grande
+(calidad, baja frecuencia de escritura), y cada consulta en vivo se embebe con el
+modelo liviano (costo, alto volumen) — ambos se comparan en el mismo índice sin
+conversión.
+
+**No es reentrenamiento.** El agente conoce al paciente porque recupera su perfil
+por similitud, no porque el modelo haya sido ajustado con sus datos.
+
+### `biblioteca_clinica`
+
+Contenido validado por el equipo clínico. Embebida con `voyage-4-large`,
+`input_type=document`.
 
 | Campo | Tipo | Notas |
 |-------|------|-------|
-| `perfil_id` | uuid PK | |
+| `chunk_id` | uuid PK | |
+| `categoria` | text | plan_tramo · guia_ecicep · educacion_medicamento · faq · criterio_alarma · glosario |
+| `grupo_riesgo` | text | G0–G3, o NULL si aplica a todos |
+| `titulo` | text | |
+| `contenido` | text | |
+| `fuente` | text | Cita exacta — Principio IV |
+| `version` | text | |
+| `validado_por` | uuid FK | → `profesional` |
+| `vigente` | boolean | |
+| `embedding` | vector(1024) | voyage-4-large |
+
+**Categorías y su propósito:**
+
+| Categoría | Contenido | Rol |
+|-----------|-----------|-----|
+| `plan_tramo` | Planes validados G1/G2/G3 (PD-03) | Lo que el agente recomienda |
+| `guia_ecicep` | Extractos citables ECICEP cap. 2 y 3 | Fundamenta respuestas generales |
+| `educacion_medicamento` | Qué es, para qué sirve — nunca dosis individual | Educación, no indicación |
+| `faq` | Preguntas frecuentes con respuesta aprobada | Cobertura sin generación libre |
+| `criterio_alarma` | Síntomas que gatillan derivación (PD-05) | Reconocimiento semántico, no diagnóstico |
+| `glosario` | Explicación simple de condiciones y términos | Alfabetización en salud |
+
+### `memoria_paciente`
+
+Perfil y resúmenes de conversación, por paciente. Embebida con `voyage-4-lite`,
+`input_type=document`. Alta frecuencia de escritura → tier barato.
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `memoria_id` | uuid PK | |
 | `pseudonym_id` | uuid FK | |
-| `contenido` | text | Perfil serializado |
-| `embedding` | vector | pgvector |
-| `actualizado_at` | timestamptz | |
+| `tipo` | text | perfil_snapshot · resumen_conversacion · evento_relevante |
+| `contenido` | text | |
+| `embedding` | vector(1024) | voyage-4-lite, mismo espacio que `biblioteca_clinica` |
+| `generado_at` | timestamptz | |
+| `vigente` | boolean | Entradas viejas se marcan `false`, nunca se sobrescriben |
+
+### Patrón de recuperación
+
+Un solo embedding de consulta (`voyage-4-lite`, `input_type=query`) sirve para
+buscar en ambas tablas — esa es la ventaja concreta del espacio compartido: no se
+paga dos veces por la misma pregunta. Ver `src/rag/perfil.py`.
+
+### Prompt caching (Anthropic — mecanismo distinto, capa siguiente)
+
+El bloque clínico recuperado para un tramo se trata como **cacheable por tramo,
+no por paciente**: dentro de la ventana de cache, múltiples pacientes del mismo
+grupo de riesgo reutilizan el mismo bloque. El hit rate depende del tráfico
+agregado del tramo, no de que un paciente individual vuelva a escribir pronto.
+
+Lo que nunca se cachea: perfil del paciente, memoria recuperada, mensaje —
+cambian en cada turno y son específicos de la persona.
+
+Implementación: `src/agents/prompt_builder.py`.
+
+**Nota de honestidad**: el retrieval asimétrico y el cache por tramo son
+optimizaciones de costo, no de seguridad clínica. Los guardrails (Principios
+I–IV) se verifican igual sin importar qué tan barato salió recuperar el contexto.
 
 ---
 

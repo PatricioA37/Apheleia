@@ -221,6 +221,7 @@ final.
 | PD-08 | Orquestación entre agentes (cuántos, qué hace cada uno) | Patricio | Pendiente |
 | PD-09 | Si la máquina de estados se expone como tool MCP | Patricio | Pendiente |
 | PD-10 | Uso puntual de modelo más capaz para casos complejos | Patricio | Pendiente |
+| PD-11 | Modelo de embeddings para el RAG del perfil | Patricio | **Resuelto** — voyage-4-large (biblioteca) + voyage-4-lite (memoria/queries), dim. 1024 |
 
 ---
 
