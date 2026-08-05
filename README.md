@@ -96,7 +96,7 @@ Base de datos: aplicar `src/data/schema.sql` en Supabase.
 | Joaquín Garrido | Criterio clínico | Qué es riesgo, planes por tramo, umbrales de derivación |
 | Gerardo Vergara | Riesgo y operación | Matriz de priorización, realismo operativo |
 | Patricio Arias | Datos y agentes | Arquitectura, contratos, clasificador |
-| Jonathan Siesquen | Interfaces | Superficie paciente + clínica, demo |
+| Jonathan | Interfaces | Superficie paciente + clínica, demo |
 
 **Regla de coordinación**: se especifican los contratos entre personas, no el interior
 del trabajo de cada persona.

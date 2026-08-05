@@ -187,14 +187,56 @@ create table alerta_clinica (
   )
 );
 
--- Perfil vectorial para RAG (no es reentrenamiento: es recuperación)
-create table perfil_vectorial (
-  perfil_id       uuid primary key default uuid_generate_v4(),
-  pseudonym_id    uuid not null references paciente_clinico(pseudonym_id),
-  contenido       text not null,
-  embedding       vector(1536),
-  actualizado_at  timestamptz default now()
+-- ============================================================
+-- CAPA RAG — familia Voyage 4 (voyage-4-large / voyage-4-lite)
+-- Espacio vectorial COMPARTIDO entre modelos de la misma familia:
+-- se puede embeber el corpus con -large y las queries en vivo con
+-- -lite, y buscar ambas contra el mismo índice (retrieval asimétrico).
+-- Dimensión elegida para el MVP: 1024 (default Matryoshka).
+-- ============================================================
+
+-- Biblioteca clínica: embebida UNA VEZ con voyage-4-large.
+-- Baja frecuencia de escritura, alta frecuencia de lectura -> calidad.
+create table biblioteca_clinica (
+  chunk_id      uuid primary key default uuid_generate_v4(),
+  categoria     text not null check (categoria in
+                  ('plan_tramo','guia_ecicep','educacion_medicamento',
+                   'faq','criterio_alarma','glosario')),
+  grupo_riesgo  text check (grupo_riesgo in ('G0','G1','G2','G3')),  -- NULL = aplica a todos
+  titulo        text not null,
+  contenido     text not null,
+  fuente        text not null,     -- cita exacta — Principio IV
+  version       text not null,
+  validado_por  uuid references profesional(profesional_id),
+  vigente       boolean not null default true,
+  embedding     vector(1024),      -- voyage-4-large, input_type=document
+  creado_at     timestamptz default now()
 );
+
+create index idx_biblioteca_embedding on biblioteca_clinica
+  using hnsw (embedding vector_cosine_ops);
+
+create index idx_biblioteca_tramo on biblioteca_clinica(grupo_riesgo, categoria)
+  where vigente;
+
+-- Memoria del paciente: perfil + resúmenes de conversación.
+-- Alta frecuencia de escritura (cada interacción puede regenerarla) -> costo bajo.
+create table memoria_paciente (
+  memoria_id    uuid primary key default uuid_generate_v4(),
+  pseudonym_id  uuid not null references paciente_clinico(pseudonym_id),
+  tipo          text not null check (tipo in
+                  ('perfil_snapshot','resumen_conversacion','evento_relevante')),
+  contenido     text not null,
+  embedding     vector(1024),      -- voyage-4-lite, mismo espacio que biblioteca_clinica
+  generado_at   timestamptz default now(),
+  vigente       boolean default true
+);
+
+create index idx_memoria_embedding on memoria_paciente
+  using hnsw (embedding vector_cosine_ops);
+
+create index idx_memoria_paciente on memoria_paciente(pseudonym_id, generado_at desc)
+  where vigente;
 
 -- ============================================================
 -- ÍNDICES

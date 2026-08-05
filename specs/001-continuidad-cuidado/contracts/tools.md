@@ -64,6 +64,44 @@ Devuelve el estado actual del paciente y la señal de escalamiento. **Determinis
 
 ---
 
+## `recuperar_contexto_clinico`
+
+Busca en la biblioteca clínica y en la memoria del paciente usando un único
+embedding de consulta (retrieval asimétrico, familia Voyage 4). **No genera
+contenido** — recupera; el agente de conversación decide qué usar.
+
+**Input**
+```json
+{
+  "pseudonym_id": "uuid",
+  "grupo_riesgo": "G0 | G1 | G2 | G3",
+  "mensaje_paciente": "string",
+  "k_clinico": 5,
+  "k_memoria": 3
+}
+```
+
+**Output**
+```json
+{
+  "clinico": [
+    { "titulo": "string", "contenido": "string", "fuente": "string", "categoria": "string" }
+  ],
+  "memoria": [
+    { "tipo": "string", "contenido": "string", "generado_at": "timestamptz" }
+  ]
+}
+```
+
+**Notas de implementación**:
+- El embedding de consulta usa `voyage-4-lite` con `input_type=query`.
+- `biblioteca_clinica` fue embebida con `voyage-4-large`, `input_type=document`.
+- `memoria_paciente` fue embebida con `voyage-4-lite`, `input_type=document`.
+- El campo `clinico` es candidato a bloque cacheable (Anthropic prompt caching)
+  cuando el resultado se repite entre pacientes del mismo `grupo_riesgo`.
+
+---
+
 ## `consultar_plan_tramo`
 
 Recupera el plan validado por el profesional para el tramo del paciente.
@@ -187,7 +225,11 @@ sistema**. Solo un humano registra `validada_por`.
 
 Jonathan construye contra estos contratos con datos de ejemplo.
 
-### Interfaz paciente
+### Interfaz paciente — app móvil (React Native + Expo)
+
+Los contratos son los mismos independientemente del cliente. La app consume estos
+endpoints vía `mobile/lib/api.ts`.
+
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
@@ -198,7 +240,7 @@ Jonathan construye contra estos contratos con datos de ejemplo.
 | GET | `/api/paciente/{id}/controles` | Historial cronológico |
 | POST | `/api/paciente/{id}/chat` | Conversación con el agente |
 
-### Interfaz clínica
+### Interfaz clínica — web (dupla gestora)
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
