@@ -60,10 +60,13 @@ T029, T030, T031, T032**. Revisa su texto actualizado abajo.
       `control`, `consentimiento`, `cuidador` y `estado_dinamico`. Flags `--generar N`,
       `--dry-run` y `--limpiar`. Cubierto por `tests/test_loader.py` (12 tests que
       replican los constraints del schema sin necesidad de base)
-- [ ] T011 [P] Variables de entorno reales: `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`,
+- [x] T011 [P] Variables de entorno reales: `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`,
       `SUPABASE_URL`, `SUPABASE_KEY` en `.env` de cada persona (nunca en el repo).
-      `SUPABASE_URL`/`SUPABASE_KEY` ya corregidas y verificadas contra el proyecto;
-      faltan `ANTHROPIC_API_KEY` y `VOYAGE_API_KEY`
+      Las cuatro presentes y verificadas contra sus servicios.
+      ⚠️ **Dos límites de cuenta, no de código**: la cuenta de Anthropic está sin
+      saldo (bloquea T023–T025, T024/T047) y la de Voyage está en tier gratuito
+      con 3 peticiones/min (los scripts embeben en lote para convivir con eso,
+      pero el chat en vivo hace 1 petición por turno)
 - [x] T052 [P] Verificar cobertura de la cohorte: los **3 carriles** y los **5 estados**
       quedan poblados, y G0/G1 aparecen solo por regresión
       (`python src/data/seed_sintetico.py` ya imprime este resumen).
@@ -131,18 +134,25 @@ la población entra con 2+ condiciones y solo llega a esos tramos por regresión
 mock + Voyage real + Claude real — antes de que lleguen los pendientes clínicos.
 Cuando Joaquín entregue PD-01…05, se **reemplaza el mock, no la arquitectura**.
 
-- [ ] T020 [P] Crear `src/data/planes/mock/` con 3-4 chunks de ejemplo por
+- [x] T020 [P] Crear `src/data/planes/mock/` con 3-4 chunks de ejemplo por
       categoría (plan_tramo, faq, glosario) — contenido inventado pero con la
-      **forma exacta** del contrato, para que el reemplazo sea solo de datos
-- [ ] T021 Script `src/data/seed_biblioteca_mock.py`: embebe los mocks con
-      `voyage-4-large` (T020) y los inserta en `biblioteca_clinica`
-- [ ] T022 Verificar que `recuperar_contexto()` (`src/rag/perfil.py`) devuelve
-      resultados sensatos contra la biblioteca mock — prueba manual con 2-3
-      preguntas de ejemplo
-- [ ] T023 Nodo de conversación mínimo: recibe mensaje → `recuperar_contexto()` →
-      `construir_prompt()` → llamada real a Claude → respuesta
-      (`src/graph/nodos/conversacion.py` o, si LangGraph aún no está montado,
-      una función simple primero — no bloquear en la orquestación)
+      **forma exacta** del contrato, para que el reemplazo sea solo de datos.
+      7 chunks, con campo `carril`; incluye un `plan_tramo` de carril agudo para
+      que el filtro por carril tenga algo que discriminar
+- [x] T021 Script `src/data/seed_biblioteca_mock.py`: embebe los mocks con
+      `voyage-4-large` (T020) y los inserta en `biblioteca_clinica`. Embebe **en
+      lote** (una petición): el tier gratuito de Voyage son 3 peticiones/min y
+      chunk por chunk lo agota. Re-ejecutable sin duplicar
+- [x] T022 Verificar que `recuperar_contexto()` (`src/rag/perfil.py`) devuelve
+      resultados sensatos contra la biblioteca mock — `src/rag/verificar_recuperacion.py`.
+      Las 4 preguntas traen arriba el chunk esperado; el filtro de carril es
+      correcto en `cronico` / `agudo` / `dual`
+- [~] T023 Nodo de conversación mínimo: recibe mensaje → `recuperar_contexto()` →
+      `construir_prompt()` → llamada real a Claude → respuesta.
+      `src/agents/conversacion_minima.py` corre de punta a punta hasta el prompt
+      ensamblado (2 bloques system cacheados + mensaje). **La llamada a Claude
+      falla con `credit balance is too low`** — falta cargar saldo en la cuenta
+      de Anthropic. No hay nada que arreglar en el código
 - [ ] T024 Verificar guardrails con la batería de inducción a diagnóstico
       (`docs/ARRANQUE-EVENTO.md` ya la menciona — escribirla ahora, no después)
 - [ ] T025 Endpoint `POST /api/paciente/{id}/chat` que expone T023

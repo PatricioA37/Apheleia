@@ -8,6 +8,11 @@ Dos fuentes, un solo query embedding (voyage-4-lite):
 El resultado se separa en bloque CACHEABLE (por tramo, no por paciente) y
 bloque VARIABLE (específico del paciente). Ver prompt_builder.py para el
 ensamblaje con cache_control.
+
+`db` es el cliente de supabase-py (`create_client`). La búsqueda vectorial no
+se puede expresar por PostgREST, así que vive en dos funciones RPC en Postgres
+(`buscar_biblioteca_clinica` / `buscar_memoria_paciente`, migración
+`apheleia_rpc_busqueda_vectorial`). Este módulo solo las invoca.
 """
 
 from dataclasses import dataclass
@@ -42,36 +47,34 @@ def recuperar_contexto(
     mensaje_paciente: str,
     pseudonym_id: str,
     grupo_riesgo: str,
+    carril: str | None = None,
     k_clinico: int = 5,
     k_memoria: int = 3,
 ) -> ContextoRecuperado:
     """
     Un único embedding de consulta (barato, voyage-4-lite) sirve para
     buscar en ambas tablas gracias al espacio compartido de Voyage 4.
+
+    El filtro de biblioteca usa `grupo_riesgo` y `carril`: los chunks con
+    esos campos en NULL aplican a todos, y un paciente `dual` recupera de
+    ambos carriles (contracts/tools.md — `recuperar_contexto_clinico`).
     """
     consulta = embeddings.embeber_consulta(mensaje_paciente)
 
-    filas_clinicas = db.fetch_all(
-        """
-        select titulo, contenido, fuente, categoria
-        from biblioteca_clinica
-        where vigente and (grupo_riesgo = %(tramo)s or grupo_riesgo is null)
-        order by embedding <=> %(q)s
-        limit %(k)s
-        """,
-        {"tramo": grupo_riesgo, "q": consulta.vector, "k": k_clinico},
-    )
+    filas_clinicas = db.rpc(
+        "buscar_biblioteca_clinica",
+        {
+            "consulta": consulta.vector,
+            "tramo": grupo_riesgo,
+            "carril_paciente": carril,
+            "k": k_clinico,
+        },
+    ).execute().data
 
-    filas_memoria = db.fetch_all(
-        """
-        select tipo, contenido, generado_at
-        from memoria_paciente
-        where pseudonym_id = %(pid)s and vigente
-        order by embedding <=> %(q)s
-        limit %(k)s
-        """,
-        {"pid": pseudonym_id, "q": consulta.vector, "k": k_memoria},
-    )
+    filas_memoria = db.rpc(
+        "buscar_memoria_paciente",
+        {"consulta": consulta.vector, "pid": pseudonym_id, "k": k_memoria},
+    ).execute().data
 
     return ContextoRecuperado(
         clinico=[ChunkClinico(**f) for f in filas_clinicas],
@@ -93,18 +96,23 @@ def actualizar_memoria_paciente(
     """
     resultado = embeddings.embeber_memoria_paciente(contenido)
 
-    db.execute(
-        """update memoria_paciente set vigente = false
-           where pseudonym_id = %(pid)s and tipo = %(tipo)s and vigente""",
-        {"pid": pseudonym_id, "tipo": tipo},
+    (
+        db.table("memoria_paciente")
+        .update({"vigente": False})
+        .eq("pseudonym_id", pseudonym_id)
+        .eq("tipo", tipo)
+        .eq("vigente", True)
+        .execute()
     )
-    db.execute(
-        """insert into memoria_paciente (pseudonym_id, tipo, contenido, embedding)
-           values (%(pid)s, %(tipo)s, %(contenido)s, %(emb)s)""",
-        {
-            "pid": pseudonym_id,
-            "tipo": tipo,
-            "contenido": contenido,
-            "emb": resultado.vector,
-        },
+    (
+        db.table("memoria_paciente")
+        .insert(
+            {
+                "pseudonym_id": pseudonym_id,
+                "tipo": tipo,
+                "contenido": contenido,
+                "embedding": resultado.vector,
+            }
+        )
+        .execute()
     )

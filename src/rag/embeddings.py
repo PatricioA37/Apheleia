@@ -41,6 +41,13 @@ class ResultadoEmbedding:
     tokens: int
 
 
+@dataclass
+class ResultadoLote:
+    vectores: list[list[float]]
+    modelo: str
+    tokens: int
+
+
 class ClienteEmbeddings:
     def __init__(self):
         self._client = voyageai.Client(api_key=os.environ["VOYAGE_API_KEY"])
@@ -49,6 +56,21 @@ class ClienteEmbeddings:
         """Para chunks de biblioteca_clinica. Se llama una vez por chunk,
         no en el camino caliente de la conversación."""
         return self._embeber(texto, ModeloEmbedding.LARGE, TipoInput.DOCUMENT)
+
+    def embeber_documentos_clinicos(self, textos: list[str]) -> ResultadoLote:
+        """Igual que embeber_documento_clinico pero en una sola petición.
+
+        Voyage limita por peticiones por minuto, no solo por tokens: en el
+        tier gratuito son 3 RPM. Sembrar la biblioteca chunk por chunk agota
+        ese límite de inmediato, así que el seed embebe en lote.
+        """
+        return self._embeber_lote(textos, ModeloEmbedding.LARGE, TipoInput.DOCUMENT)
+
+    def embeber_consultas(self, textos: list[str]) -> ResultadoLote:
+        """Varias consultas en una petición. NO es el camino de producción
+        —ahí cada turno trae un mensaje— sino el de scripts de verificación,
+        que si no agotan los 3 RPM del tier gratuito."""
+        return self._embeber_lote(textos, ModeloEmbedding.LITE, TipoInput.QUERY)
 
     def embeber_memoria_paciente(self, texto: str) -> ResultadoEmbedding:
         """Para perfil_snapshot / resumen_conversacion en memoria_paciente."""
@@ -70,6 +92,21 @@ class ClienteEmbeddings:
         )
         return ResultadoEmbedding(
             vector=resp.embeddings[0],
+            modelo=modelo.value,
+            tokens=resp.total_tokens,
+        )
+
+    def _embeber_lote(
+        self, textos: list[str], modelo: ModeloEmbedding, tipo: TipoInput
+    ) -> ResultadoLote:
+        resp = self._client.embed(
+            texts=textos,
+            model=modelo.value,
+            input_type=tipo.value,
+            output_dimension=DIMENSION,
+        )
+        return ResultadoLote(
+            vectores=resp.embeddings,
             modelo=modelo.value,
             tokens=resp.total_tokens,
         )
