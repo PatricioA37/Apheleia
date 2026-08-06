@@ -1,7 +1,13 @@
+import { useCallback } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Bajada, Pantalla, Tarjeta, Titulo } from '@/components/apheleia';
-import { SELLO_VALIDAR, avisos, signosAlarma } from '@/data/mock';
+import { Cargando, ErrorCarga } from '@/components/estado';
+import { SIGNOS_ALARMA } from '@/data/signos-alarma';
+import { useRecurso } from '@/hooks/use-recurso';
+import { obtenerAvisos } from '@/lib/api';
+import { PACIENTE_ID } from '@/lib/config';
+import { SELLO_VALIDAR, formatearFecha } from '@/lib/contratos';
 import { color, radius, space, touch, type } from '@/theme/tokens';
 
 /**
@@ -12,6 +18,11 @@ import { color, radius, space, touch, type } from '@/theme/tokens';
  *    uno corre.
  * 2. Avisos enviados a su equipo: qué se informó, cuándo, y si ya lo revisaron.
  *
+ * ⚠️ El bloque de emergencia es LOCAL y se renderiza siempre, aunque la carga
+ * de avisos falle o no haya red. Hacerlo depender de la API significaría que
+ * justo cuando más importa puede aparecer vacío. Solo degrada la mitad de
+ * abajo.
+ *
  * Guardrails que se ven acá:
  * - Ningún aviso interpreta un síntoma ni nombra una condición: cita el criterio
  *   que lo gatilló y nada más.
@@ -21,6 +32,9 @@ import { color, radius, space, touch, type } from '@/theme/tokens';
  * ⚠️ Los signos de alarma son contenido clínico pendiente de PD-05 (Joaquín).
  */
 export default function Alertas() {
+  const cargar = useCallback(() => obtenerAvisos(PACIENTE_ID), []);
+  const { datos, cargando, error, recargar } = useRecurso(cargar);
+
   return (
     <Pantalla>
       <Titulo>Alertas</Titulo>
@@ -29,7 +43,7 @@ export default function Alertas() {
       <View style={styles.bloqueAlarma}>
         <Text style={styles.tituloAlarma}>Consulte de inmediato si tiene</Text>
 
-        {signosAlarma.map((s) => (
+        {SIGNOS_ALARMA.map((s) => (
           <View key={s} style={styles.fila}>
             <Text style={styles.vinneta}>•</Text>
             <Text style={styles.signo}>{s}</Text>
@@ -52,10 +66,21 @@ export default function Alertas() {
         Cuando algo necesita atención, su equipo se entera. Nadie queda solo esperando.
       </Text>
 
-      {avisos.map((a) => (
+      {cargando ? <Cargando que="sus avisos" /> : null}
+      {error ? <ErrorCarga onReintentar={recargar} /> : null}
+
+      {datos?.length === 0 ? (
+        <Tarjeta>
+          <Text style={styles.explicacion}>
+            No se ha enviado ningún aviso a su equipo.
+          </Text>
+        </Tarjeta>
+      ) : null}
+
+      {datos?.map((a) => (
         <Tarjeta key={a.id}>
           <View style={styles.encabezado}>
-            <Text style={styles.fecha}>{a.fecha}</Text>
+            <Text style={styles.fecha}>{formatearFecha(a.fecha)}</Text>
             <View style={[styles.marca, a.revisado ? styles.marcaRevisado : styles.marcaPendiente]}>
               <Text
                 style={[
