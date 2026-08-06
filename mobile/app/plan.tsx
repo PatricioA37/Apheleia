@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Bajada, Fuente, Pantalla, Tarjeta, Titulo } from '@/components/apheleia';
 import { Cargando, ErrorCarga } from '@/components/estado';
 import { gruposRiesgo } from '@/data/grupos-riesgo';
+import { perfilMock, planesMock } from '@/data/mock';
 import { patologias } from '@/data/patologias';
 import { programas } from '@/data/programas';
 import { useRecurso } from '@/hooks/use-recurso';
@@ -23,15 +24,42 @@ import { color, radius, space, type } from '@/theme/tokens';
  * generación libre del modelo (Principio IV: cita o di no sé). Un paciente en
  * carril `dual` recibe DOS planes y se muestran separados, sin mezclarlos.
  */
+/**
+ * Referencia estable del plan de ejemplo. Se define fuera del componente para
+ * que la comparación por identidad de abajo funcione entre renders.
+ */
+const PLAN_EJEMPLO = { planes: planesMock };
+
+/** 501 = el backend no expone el endpoint todavía. Cualquier otro error se
+ *  propaga, para que una caída real de red se vea como caída y no como dato. */
+function noImplementado(e: unknown): boolean {
+  return e instanceof Error && e.message.includes('HTTP 501');
+}
+
 export default function Plan() {
-  const cargar = useCallback(() => obtenerPlan(PACIENTE_ID), []);
+  const cargar = useCallback(
+    () =>
+      obtenerPlan(PACIENTE_ID).catch((e: unknown) => {
+        if (noImplementado(e)) return PLAN_EJEMPLO;
+        throw e;
+      }),
+    []
+  );
   const { datos, cargando, error, recargar } = useRecurso(cargar);
 
   // El perfil se pide aparte y falla aparte: si el grupo de riesgo no carga, el
   // plan igual se muestra. Son dos endpoints distintos del contrato.
-  const cargarPerfil = useCallback(() => obtenerPerfil(PACIENTE_ID), []);
+  const cargarPerfil = useCallback(
+    () =>
+      obtenerPerfil(PACIENTE_ID).catch((e: unknown) => {
+        if (noImplementado(e)) return perfilMock;
+        throw e;
+      }),
+    []
+  );
   const { datos: perfil } = useRecurso(cargarPerfil);
 
+  const esEjemplo = datos === PLAN_EJEMPLO || perfil === perfilMock;
   const planes = datos?.planes ?? [];
   const hayNoValidado = planes.some((p) => !p.validado);
 
@@ -66,6 +94,13 @@ export default function Plan() {
           <Text style={styles.origen}>{p.fuente}</Text>
         </Tarjeta>
       ))}
+
+      {esEjemplo ? (
+        <Fuente>
+          Plan de ejemplo — su equipo de salud aún no publica el suyo. Lo que ve acá no
+          reemplaza lo que le indicaron en su control.
+        </Fuente>
+      ) : null}
 
       {hayNoValidado ? <Fuente>{FUENTE_PLAN}</Fuente> : null}
     </Pantalla>

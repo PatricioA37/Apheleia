@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Bajada, Pantalla, Tarjeta, Titulo } from '@/components/apheleia';
+import { Bajada, Fuente, Pantalla, Tarjeta, Titulo } from '@/components/apheleia';
 import { Cargando, ErrorCarga } from '@/components/estado';
+import { avisosMock } from '@/data/mock';
 import { SIGNOS_ALARMA } from '@/data/signos-alarma';
 import { useRecurso } from '@/hooks/use-recurso';
 import { obtenerAvisos } from '@/lib/api';
@@ -32,8 +33,23 @@ import { color, radius, space, touch, type } from '@/theme/tokens';
  * ⚠️ Los signos de alarma son contenido clínico pendiente de PD-05 (Joaquín).
  */
 export default function Alertas() {
-  const cargar = useCallback(() => obtenerAvisos(PACIENTE_ID), []);
+  const cargar = useCallback(
+    () =>
+      obtenerAvisos(PACIENTE_ID).catch((e: unknown) => {
+        // 501 = el backend todavía no expone este endpoint. Se cae al ejemplo
+        // del propio front y la pantalla lo declara. Cualquier OTRO error se
+        // vuelve a lanzar: una caída real de red tiene que verse como caída,
+        // no disfrazarse de dato.
+        if (e instanceof Error && e.message.includes('HTTP 501')) return avisosMock;
+        throw e;
+      }),
+    []
+  );
   const { datos, cargando, error, recargar } = useRecurso(cargar);
+
+  // Identidad por referencia: `cargar` devuelve el mismo arreglo, así que no
+  // hace falta estado extra para saber que lo que se ve es de ejemplo.
+  const esEjemplo = datos === avisosMock;
 
   return (
     <Pantalla>
@@ -94,6 +110,10 @@ export default function Alertas() {
           <Text style={styles.motivo}>{a.motivo}</Text>
         </Tarjeta>
       ))}
+
+      {esEjemplo ? (
+        <Fuente>Avisos de ejemplo — su equipo aún no publica esta información.</Fuente>
+      ) : null}
     </Pantalla>
   );
 }

@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Bajada, Fuente, Pantalla, Seccion, Tarjeta, Titulo } from '@/components/apheleia';
 import { Cargando, ErrorCarga } from '@/components/estado';
+import { controlesMock } from '@/data/mock';
 import { useRecurso } from '@/hooks/use-recurso';
 import { obtenerControles } from '@/lib/api';
 import { PACIENTE_ID } from '@/lib/config';
@@ -22,9 +23,20 @@ import { color, radius, space, type } from '@/theme/tokens';
  * pantalla quiere saber cuándo es su próxima hora, no qué pasó en marzo.
  */
 export default function Controles() {
-  const cargar = useCallback(() => obtenerControles(PACIENTE_ID), []);
+  const cargar = useCallback(
+    () =>
+      obtenerControles(PACIENTE_ID).catch((e: unknown) => {
+        // 501 = endpoint aún no implementado en el backend: se muestra el
+        // ejemplo y se declara. Cualquier otro error se propaga, para que un
+        // fallo real de red siga viéndose como fallo.
+        if (e instanceof Error && e.message.includes('HTTP 501')) return controlesMock;
+        throw e;
+      }),
+    []
+  );
   const { datos, cargando, error, recargar } = useRecurso(cargar);
 
+  const esEjemplo = datos === controlesMock;
   const ahora = Date.now();
   const controles = datos ?? [];
 
@@ -68,6 +80,10 @@ export default function Controles() {
             <TarjetaControl key={c.id} control={c} destacar={false} />
           ))}
         </>
+      ) : null}
+
+      {esEjemplo ? (
+        <Fuente>Horas de ejemplo — su centro de salud aún no publica su agenda.</Fuente>
       ) : null}
 
       {controles.length > 0 ? (

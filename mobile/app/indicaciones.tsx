@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Bajada, Fuente, Marcable, Pantalla, Seccion, Tarjeta, Titulo } from '@/components/apheleia';
 import { Cargando, ErrorCarga } from '@/components/estado';
 import { habitos } from '@/data/habitos';
+import { medicamentosMock } from '@/data/mock';
 import { useRecurso } from '@/hooks/use-recurso';
 import { obtenerMedicamentos } from '@/lib/api';
 import { PACIENTE_ID } from '@/lib/config';
@@ -40,8 +41,20 @@ import { color, radius, space, touch, type } from '@/theme/tokens';
 let marcasDeLaSesion = new Set<string>();
 
 export default function Indicaciones() {
-  const cargar = useCallback(() => obtenerMedicamentos(PACIENTE_ID), []);
+  const cargar = useCallback(
+    () =>
+      obtenerMedicamentos(PACIENTE_ID).catch((e: unknown) => {
+        // 501 = endpoint aún no implementado: se muestra el ejemplo y se
+        // declara en pantalla. Cualquier otro error se propaga — una caída
+        // real de red no debe parecer una lista de indicaciones válida.
+        if (e instanceof Error && e.message.includes('HTTP 501')) return medicamentosMock;
+        throw e;
+      }),
+    []
+  );
   const { datos, cargando, error, recargar } = useRecurso(cargar);
+
+  const esEjemplo = datos === medicamentosMock;
 
   const [marcas, setMarcas] = useState<Set<string>>(marcasDeLaSesion);
 
@@ -141,6 +154,13 @@ export default function Indicaciones() {
               ) : null}
             </Tarjeta>
           ))}
+
+          {esEjemplo ? (
+            <Fuente>
+              Indicaciones de ejemplo — su equipo de salud aún no publica las suyas. No
+              cambie nada de lo que toma basándose en esta pantalla.
+            </Fuente>
+          ) : null}
 
           {/* Decir la verdad sobre las marcas. Dejar creer que quedaron
               registradas sería inventarle al paciente algo que no ocurrió. */}
