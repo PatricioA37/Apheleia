@@ -115,14 +115,15 @@ export type Control = {
   proximo?: boolean;
 };
 
+// Forma tomada de los chunks reales de `biblioteca_clinica`
+// (src/data/planes/mock/biblioteca_mock.py), no inventada.
 export type PlanCarril = {
-  aplica_a: Carril;
-  objetivos: string[];
-  recomendaciones: string[];
-  frecuencia_seguimiento_sugerida: string;
-  validado_por: string | null;   // null mientras sea contenido mock
-  version: string;
+  aplica_a: Carril | null;   // null = aplica a los dos carriles
+  titulo: string;
+  contenido: string;
   fuente: string;
+  version: string;
+  validado: boolean;         // validado_por !== null
 };
 
 export type Aviso = {

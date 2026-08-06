@@ -2,6 +2,7 @@
   "expo": {
     "name": "Apheleia",
     "slug": "apheleia-paciente",
+    "owner": "apheleia-developer-team",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,9 +10,11 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.apheleia.paciente"
     },
     "android": {
+      "package": "com.apheleia.paciente",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -43,6 +46,18 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "741e55a7-a2cf-4c64-9041-ffc3a208b6bf"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/741e55a7-a2cf-4c64-9041-ffc3a208b6bf"
     }
   }
 }
