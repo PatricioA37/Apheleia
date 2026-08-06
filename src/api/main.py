@@ -93,6 +93,27 @@ def _buscar_paciente(pseudonym_id: str) -> dict:
     return filas[0]
 
 
+def _es_derivacion(respuesta: str) -> bool:
+    """¿La respuesta deriva a urgencia? Decide si el front pinta el botón
+    «Llamar al 131» (`chat.tsx` — `derivacion`).
+
+    Regla: el texto menciona el 131. Es la que se acordó, y es deliberadamente
+    conservadora — ante la duda, derivar (base_guardrails.md).
+
+    LIMITACIÓN CONOCIDA, medida: el agente también menciona el 131 como
+    consejo preventivo en respuestas que NO son una emergencia en curso
+    («si en algún momento siente dolor en el pecho, llame al 131»). En esos
+    casos el botón aparece igual. El costo del falso positivo es un botón de
+    más; el del falso negativo es una emergencia sin botón — por eso se
+    prefiere este lado del error, pero conviene medirlo antes de la demo.
+
+    La alternativa robusta es evaluar las señales del guardrail sobre el
+    MENSAJE del paciente, de forma determinista y sin depender de cómo
+    redacte el modelo (Principio VI). Queda anotado como tarea.
+    """
+    return "131" in respuesta
+
+
 @app.post("/api/paciente/{pseudonym_id}/chat")
 def chat(pseudonym_id: str, cuerpo: MensajeChat) -> dict:
     """Conversación con el agente.
@@ -100,9 +121,10 @@ def chat(pseudonym_id: str, cuerpo: MensajeChat) -> dict:
     `pseudonym_id`, nunca identidad (Principio V): la ruta no acepta rut,
     nombre ni ficha.
 
-    Devuelve además `chunks_clinicos_usados` — qué fuentes sustentaron la
-    respuesta. Es lo que hace auditable el Principio IV desde el cliente,
-    y la traza que pide el Principio VII.
+    La forma de la respuesta la fija `RespuestaChat` en
+    `mobile/lib/contratos.ts` — `respuesta`, `fuente`, `derivacion`. El
+    bloque `traza` es añadido y opcional: TypeScript ignora las claves de
+    más, y es lo que hace auditable el Principio VII desde el cliente.
     """
     paciente = _buscar_paciente(pseudonym_id)
 
@@ -115,14 +137,23 @@ def chat(pseudonym_id: str, cuerpo: MensajeChat) -> dict:
         embeddings=_Estado.embeddings,
     )
 
+    # El front muestra UNA cita, no una lista. Se manda la del primer chunk:
+    # el cupo de `perfil.py` garantiza que ahí está el plan validado del
+    # tramo, que es la fuente de mayor autoridad de las recuperadas.
+    fuentes = resultado["fuentes_clinicas"]
+
     return {
         "respuesta": resultado["respuesta"],
-        "fuentes": resultado["chunks_clinicos_usados"],
+        "fuente": fuentes[0] if fuentes else None,
+        "derivacion": _es_derivacion(resultado["respuesta"]),
         "traza": {
             "modelo": resultado["modelo_usado"],
             "tokens_in": resultado["tokens_in"],
             "tokens_out": resultado["tokens_out"],
             "cache_read": resultado["cache_read_tokens"],
+            # Todas las fuentes, para auditar qué sustentó la respuesta.
+            "fuentes": fuentes,
+            "chunks": resultado["chunks_clinicos_usados"],
         },
     }
 

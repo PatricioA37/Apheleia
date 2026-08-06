@@ -86,6 +86,10 @@ def conversar(
             respuesta.usage, "cache_read_input_tokens", 0
         ),
         "chunks_clinicos_usados": [c.titulo for c in contexto.clinico],
+        # La cita literal, no el título: es lo que el paciente ve como
+        # respaldo de la respuesta (Principio IV). El primero es el de mayor
+        # autoridad — el cupo de `perfil.py` pone ahí el plan validado.
+        "fuentes_clinicas": [c.fuente for c in contexto.clinico],
     }
 
 

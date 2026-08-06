@@ -327,9 +327,37 @@ Se renumeran desde **T054**, primer ID libre. Equivalencia con la lista original
       ruido e inconsistencia de registro. Se corrige en la sección de rol del
       agente (PD-08), no en `base_guardrails.md`.
 
-**Checkpoint**: el RAG cita normativa real y los guardrails de no-diagnóstico,
-no-autorización y emergencia están verificados end-to-end. Lo único que falta para
-la pregunta 2 es contenido clínico validado (PD-03/T026), no arquitectura.
+- [x] T065 Chat del front conectado al backend real. El contrato del endpoint no
+      coincidía con `RespuestaChat` de `mobile/lib/contratos.ts`: devolvía
+      `fuentes: string[]` y el front espera `fuente?: string`, y **no emitía
+      `derivacion`**, así que el botón «Llamar al 131» de `chat.tsx:118` no
+      aparecía nunca — peor que el mock, que sí lo marca. Alineado del lado
+      backend; el front no se tocó. `mobile/.env` con la API local y un
+      `pseudonym_id` real de la cohorte (el default `demo-0001` da 404).
+      Verificado end-to-end: 200, CORS ok, y el prompt cache leyendo 5 155 tokens.
+- [ ] T066 `derivacion` se decide buscando «131» en la respuesta del agente
+      (decisión tomada, ver `_es_derivacion`). **Medido: no es determinista.** El
+      mismo mensaje «¿tengo hipertensión grave?» dio `true` unas 2 de 9 veces,
+      según si el modelo menciona el 131 como consejo preventivo. Detecta 3/3
+      emergencias reales y dio 0/7 falsos positivos en una corrida limpia, pero
+      para un afordance de emergencia la inestabilidad pesa más que la tasa.
+      Sustituir por evaluación determinista de las señales del guardrail sobre el
+      **mensaje del paciente**, sin depender de la redacción del modelo
+      (Principio VI). Se cruza con T046 (`registrar_derivacion_emergencia`).
+- [ ] T067 `fuente` siempre sale como «MOCK — pendiente validación profesional»,
+      porque el cupo de plan pone el chunk mock primero y ese es el que se cita.
+      Correcto mientras el plan sea mock —se autodeclara sin validar—, pero
+      significa que **las citas de ECICEP nunca llegan a la pantalla del
+      paciente**. Se resuelve solo cuando entre el contenido real (PD-03/T026).
+
+**Checkpoint**: el RAG cita normativa real, los guardrails de no-diagnóstico,
+no-autorización y emergencia están verificados end-to-end, y el chat del front
+consume el backend real. Lo que falta para la pregunta 2 es contenido clínico
+validado (PD-03/T026), no arquitectura.
+
+**Aviso para Jonathan**: en modo `http` solo el chat tiene backend. Los otros
+cinco endpoints devuelven **501** y sus pantallas se rompen. Para demostrar la app
+completa hay que forzar mock con `?fuente=mock` en la URL, o implementar los GET.
 
 ---
 
