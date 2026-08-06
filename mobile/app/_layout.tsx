@@ -21,9 +21,10 @@ export default function RootLayout() {
           headerBackTitle: 'Inicio',
         }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="medicamentos" options={{ title: 'Medicamentos' }} />
-        <Stack.Screen name="controles" options={{ title: 'Controles' }} />
-        <Stack.Screen name="plan" options={{ title: 'Mi plan' }} />
+        <Stack.Screen name="seguimiento" options={{ title: 'Seguimiento' }} />
+        <Stack.Screen name="indicaciones" options={{ title: 'Indicaciones' }} />
+        <Stack.Screen name="calendario" options={{ title: 'Calendario clínico' }} />
+        <Stack.Screen name="plan" options={{ title: 'Plan de Salud Integral' }} />
         <Stack.Screen name="alertas" options={{ title: 'Alertas' }} />
         <Stack.Screen name="chat" options={{ title: 'Conversar' }} />
         <Stack.Screen name="configuracion" options={{ title: 'Configuración' }} />

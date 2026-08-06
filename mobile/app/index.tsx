@@ -36,9 +36,10 @@ export default function Inicio() {
       <Text style={styles.bajada}>Su cuidado, al día</Text>
 
       <View style={styles.accesos}>
-        <BotonGrande etiqueta="Medicamentos" onPress={() => router.push('/medicamentos')} />
-        <BotonGrande etiqueta="Controles" onPress={() => router.push('/controles')} />
-        <BotonGrande etiqueta="Mi plan" onPress={() => router.push('/plan')} />
+        <BotonGrande etiqueta="Seguimiento" onPress={() => router.push('/seguimiento')} />
+        <BotonGrande etiqueta="Indicaciones" onPress={() => router.push('/indicaciones')} />
+        <BotonGrande etiqueta="Calendario clínico" onPress={() => router.push('/calendario')} />
+        <BotonGrande etiqueta="Plan de Salud Integral" onPress={() => router.push('/plan')} />
         {/* En rojo a propósito: es la pantalla a la que uno corre. */}
         <BotonGrande
           etiqueta="Alertas"
