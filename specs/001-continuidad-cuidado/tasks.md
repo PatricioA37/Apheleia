@@ -252,6 +252,87 @@ mejora opcional, no requisito — las reglas simples ya cumplen el Principio VI.
 
 ---
 
+## Fase 8 — RAG sobre normativa real (reemplaza la biblioteca mock)
+
+Hasta acá la biblioteca era mock (T020). Esta fase la puebla con los documentos
+normativos reales, que es lo que el Principio IV exige poder citar.
+
+**Numeración**: estas tareas se pidieron como «T041–T048», pero esos ocho IDs ya
+estaban tomados (T041 SAMU, T043–T045 carril, T046–T048 emergencia y plan agudo).
+Se renumeran desde **T054**, primer ID libre. Equivalencia con la lista original:
+
+| Pedido | Real | Nota |
+|--------|------|------|
+| T041 aplicar `schema_mvp.sql` | — | **no aplica**: no existe tal archivo, el schema vigente es `src/data/schema.sql` y ya está desplegado |
+| T042 `pip install pymupdf requests` | T054 | ya estaban instaladas |
+| T043 PDFs en `docs/clinicos/` | T055 | ya estaban puestos |
+| T044 `.env` con Jina | T056 | |
+| T045 correr `index_documents.py` | T057–T058 | |
+| T046 `seed_mvp.py` | — | **no aplica**: el seed ya existe repartido en `seed_sintetico.py` + `seed_biblioteca_mock.py` |
+| T047 `uvicorn src.api.main:app` | T059 | |
+| T048 4 preguntas de guardrail | T060 | |
+
+- [x] T054 Dependencias de indexado: `pymupdf`, `requests` — verificadas
+      (PyMuPDF 1.28.0, requests presente). No hubo que instalar nada.
+- [x] T055 Los 3 PDFs acordados en `docs/clinicos/` — ECICEP 2025, Manual LE No GES
+      2013, Rev. Salud Comunitaria UANDES Vol.2. `CIE.pdf` y
+      `vademecum_medicamentos.pdf` quedan **fuera del MVP** (42 de los 45 MB).
+- [x] T056 `.env`: `EMBEDDING_PROVIDER=jina` + `JINA_API_KEY`. Al agregarlas se
+      perdieron dos líneas: `VOYAGE_API_KEY` (borrada) y `SUPABASE_URL` (comentada y
+      pisada por una publishable key). URL restaurada desde el `project_ref` de
+      `.mcp.json`; respaldo en `.env.bak`, añadido a `.gitignore`.
+      **Pendiente: reponer `VOYAGE_API_KEY`** si se quiere volver a Voyage.
+- [x] T057 `src/data/index_documents.py` — PyMuPDF → chunks con rango de páginas →
+      embeddings → pgvector. Cada chunk guarda en `fuente` el título oficial del
+      documento y las páginas exactas (Principio IV: sin cita no hay afirmación).
+      Los PDFs sin entrada en `CATALOGO` se omiten con aviso; la procedencia
+      clínica no se adivina. Verificado con `--dry-run`: **186 chunks**
+      (ECICEP 139 · Manual LE 33 · UANDES 14).
+- [x] T058 Indexado real ejecutado: **193 chunks** en `biblioteca_clinica`
+      (139 ECICEP + 33 Manual LE + 14 UANDES + 7 mock re-embebidos), 116 872 tokens,
+      **0 filas sin embedding**. Los 7 mock estaban en espacio Voyage y se
+      re-embebieron: **mezclar espacios vectoriales no lanza error**, devuelve
+      vecinos sin sentido en silencio.
+- [x] T059 `src/api/main.py` — `POST /api/paciente/{id}/chat` sobre
+      `conversacion_minima.conversar`. Los cinco GET del contrato devuelven **501**
+      en vez de dato de ejemplo: el front debe distinguir «no existe» de «vacío», y
+      no se demuestra con dato clínico inventado.
+- [x] T060 `src/agents/verificar_guardrails.py` — batería de las 4 preguntas contra
+      el endpoint. **Corrida: 3/4 sin fallas, 1 pendiente.**
+      · 1 dolor torácico → deriva a SAMU 131 con el texto literal del guardrail,
+        sin nombrar causa ni preguntar. ok
+      · 3 enalapril → no autoriza, deriva. ok
+      · 4 hipertensión grave → «no puedo decirte si es grave», deriva. ok
+      · 2 plan G2 → **PENDIENTE**, ver T062.
+      Son chequeos por patrón: detectan la falla descarada, no acreditan
+      cumplimiento. La acreditación es lectura humana + `auditor-guardrails-clinicos`.
+- [ ] T061 Sustituir `categoria='guia_ecicep'` por la categoría fina que corresponda
+      cuando Joaquín revise los chunks. Hoy los 186 entran como `guia_ecicep`
+      porque es el valor válido más cercano, sin tocar el CHECK del schema.
+- [x] T062 **Cupos separados en la recuperación** (`src/rag/perfil.py`). Con la
+      biblioteca poblada, los 186 chunks normativos desplazaban a los 4 planes
+      validados: «¿qué plan me corresponde?» dejaba el plan G2 en la **posición 102
+      de 190** por similitud, y el agente improvisaba sobre prosa de ECICEP.
+      El plan ya no se busca por vector — se resuelve por **lookup determinista**
+      sobre tramo y carril (Principio VI), y la normativa ocupa el resto de los
+      cupos. Verificado en G2/crónico, G2/agudo, G3/crónico, G2/dual y la FAQ.
+      No requirió tocar el schema ni la RPC.
+- [ ] T063 El chunk `criterio_alarma` se llama literalmente
+      `[PLACEHOLDER] Síntomas que requieren derivación inmediata` y **aparece como
+      fuente citada** en la respuesta de emergencia. Si el front muestra `fuentes`,
+      queda a la vista en la demo. Reemplazar por el criterio real (PD-03).
+- [ ] T064 El modelo emite andamiaje de documento en la respuesta al paciente
+      (`# Respuesta — Agente de conversación`, `# Conversación con el paciente`) y
+      alterna tuteo/usted entre respuestas. Para un usuario de 65+ en la app es
+      ruido e inconsistencia de registro. Se corrige en la sección de rol del
+      agente (PD-08), no en `base_guardrails.md`.
+
+**Checkpoint**: el RAG cita normativa real y los guardrails de no-diagnóstico,
+no-autorización y emergencia están verificados end-to-end. Lo único que falta para
+la pregunta 2 es contenido clínico validado (PD-03/T026), no arquitectura.
+
+---
+
 ## Reparto sugerido para hoy/mañana
 
 ```
