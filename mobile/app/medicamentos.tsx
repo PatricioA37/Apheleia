@@ -1,35 +1,59 @@
+import { useCallback } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Bajada, Pantalla, Tarjeta, Titulo } from '@/components/apheleia';
-import { SELLO_VALIDAR, describirTomas, medicamentos, type Tomas } from '@/data/mock';
+import { Cargando, ErrorCarga } from '@/components/estado';
+import { useRecurso } from '@/hooks/use-recurso';
+import { obtenerMedicamentos } from '@/lib/api';
+import { PACIENTE_ID } from '@/lib/config';
+import { SELLO_VALIDAR, describirTomas, type Tomas } from '@/lib/contratos';
 import { color, radius, space, type } from '@/theme/tokens';
 
 /**
  * Medicamentos — solo lectura.
  *
  * El paciente NO agrega, edita ni elimina medicamentos. Las indicaciones las
- * determina el profesional de salud. Acotación clínica de Joaquín, y coherente
- * con el Principio I: el sistema no prescribe ni modifica dosis.
+ * determina el profesional de salud (Principio I: el sistema no prescribe ni
+ * modifica dosis).
  *
- * ⚠️ Esto contradice lo escrito hoy en `spec.md` (US2: "el paciente registra sus
- * medicamentos"), en `contracts/tools.md` (`POST` y `PATCH` de medicamentos) y en
- * las tareas T015, T016 y T018. Hay que actualizar el contrato y avisar al equipo.
- *
- * Cada tarjeta muestra las tomas en la notación de la receta (`1-0-1`) y debajo
- * su traducción en palabras. MVP: tres tomas, sin medias dosis.
+ * La grilla de tomas se dibuja SOLO si la indicación viene en notación de
+ * posología. Una frecuencia como «cada 8 h» no significa mañana/mediodía/
+ * noche: mostrarla en la grilla le atribuiría al profesional un horario que
+ * no indicó. En ese caso se muestra el texto tal cual.
  */
 export default function Medicamentos() {
+  const cargar = useCallback(() => obtenerMedicamentos(PACIENTE_ID), []);
+  const { datos, cargando, error, recargar } = useRecurso(cargar);
+
   return (
     <Pantalla>
       <Titulo>Medicamentos</Titulo>
       <Bajada>Lo que su equipo de salud le indicó</Bajada>
 
-      {medicamentos.map((m) => (
+      {cargando ? <Cargando que="sus medicamentos" /> : null}
+      {error ? <ErrorCarga onReintentar={recargar} /> : null}
+
+      {datos?.length === 0 ? (
+        <Tarjeta>
+          <Text style={styles.vacio}>
+            No hay medicamentos indicados en este momento.
+          </Text>
+        </Tarjeta>
+      ) : null}
+
+      {datos?.map((m) => (
         <Tarjeta key={m.id}>
           <Text style={styles.nombre}>{m.nombre}</Text>
           <Text style={styles.dosis}>{m.dosis}</Text>
-          <GrillaTomas tomas={m.tomas} />
-          <Text style={styles.enPalabras}>{describirTomas(m.tomas)}</Text>
+
+          {m.tomas ? (
+            <>
+              <GrillaTomas tomas={m.tomas} />
+              <Text style={styles.enPalabras}>{describirTomas(m.tomas)}</Text>
+            </>
+          ) : (
+            <Text style={styles.enPalabras}>{m.frecuencia}</Text>
+          )}
 
           {/* Recomendación de acompañamiento. Va en tono más suave que la dosis:
               lo que la persona viene a ver es cuánto y cuándo. */}
@@ -84,6 +108,11 @@ function GrillaTomas({ tomas }: { tomas: Tomas }) {
 }
 
 const styles = StyleSheet.create({
+  vacio: {
+    fontSize: type.body,
+    color: color.inkMuted,
+    lineHeight: type.body * 1.45,
+  },
   nombre: {
     fontSize: type.heading,
     fontWeight: '600',
