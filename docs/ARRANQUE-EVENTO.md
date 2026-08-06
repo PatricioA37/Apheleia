@@ -25,16 +25,23 @@ Estos definen qué construye el resto del equipo.
 - [ ] **PD-01** ¿Qué señales, observables **sin examen de laboratorio**, distinguen a un
       paciente que se está desviando de uno estable?
       → van a `src/core/clasificador.py`
-- [ ] **PD-02** Nombres y criterios de los estados dinámicos.
-      Tentativos: `en_meta`, `desviacion`, `alarma`. ¿Se mantienen?
-      → `data-model.md` y contratos
-- [ ] **PD-03** Biblioteca de planes validados por tramo (G1, G2, G3): objetivos,
-      recomendaciones, frecuencia sugerida.
+- [x] **PD-02 — RESUELTO**. Cinco estados definidos, con acción asociada:
+      `signo_alarma` (reconsulta inmediata + alerta prioritaria) ·
+      `descompensado` (alerta a dupla gestora) ·
+      `compensado` (acompañamiento de rutina) ·
+      `en_regresion` (evaluar deprescripción o alta) ·
+      `perdida_contacto` (contacto asistido, **sin egreso**).
+      Lo que queda de esto es PD-04: los umbrales de transición.
+- [ ] **PD-03** Biblioteca de planes validados **por tramo (G1, G2, G3) y por carril
+      agudo**: objetivos, recomendaciones, frecuencia sugerida.
       → `src/data/planes/`
-- [ ] **PD-04** Umbrales concretos de derivación a profesional.
+- [ ] **PD-04** Umbrales de transición entre los 5 estados y de derivación a profesional.
+      Ojo: el umbral de `descompensado` debe ser menor en G3 y en carril agudo/dual.
       → `src/core/reglas_alerta.py`
 - [ ] **PD-05** Síntomas de alarma que fuerzan derivación inmediata.
       → system prompt del agente de conversación
+      **No confundir con emergencia vital**: esa derivación ya está fija en
+      `base_guardrails.md` (SAMU 131) y no es un parámetro clínico ajustable.
 
 ### Gerardo — priorización y realismo
 

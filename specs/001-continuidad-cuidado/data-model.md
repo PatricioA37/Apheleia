@@ -3,6 +3,16 @@
 **Principio rector**: separación de identidad y dato clínico (Constitución, Principio V).
 El motor del sistema opera sobre `pseudonym_id`. El dominio clínico no contiene PII.
 
+**Población modelada**: personas de **65 años o más** con **2 o más condiciones crónicas
+activas** (CIE-10), en el sistema de salud chileno **público y privado**.
+
+**Dos ejes de clasificación**, independientes y simultáneos:
+
+- **Eje 1 — carril de manejo**: `agudo` · `cronico` · `dual`. Lo asigna el profesional en
+  la atención; el sistema no lo infiere (`asignacion_carril`).
+- **Eje 2 — estado dinámico**: `signo_alarma` · `descompensado` · `compensado` ·
+  `en_regresion` · `perdida_contacto`. Lo calcula el clasificador (`estado_dinamico`).
+
 Durante el Lab, todos los datos son sintéticos.
 
 ---
@@ -16,9 +26,9 @@ Durante el Lab, todos los datos son sintéticos.
 | `persona_id` | uuid PK | |
 | `rut_hash` | text | Hash con sal, nunca RUT plano |
 | `nombre_sintetico` | text | Datos sintéticos en el Lab |
-| `fecha_nacimiento` | date | |
+| `fecha_nacimiento` | date | **Criterio de inclusión: ≥ 65 años** |
 | `sexo` | text | |
-| `prevision` | text | FONASA A/B/C/D · ISAPRE |
+| `prevision` | text | FONASA A/B/C/D · ISAPRE — el sistema cubre ámbito público **y privado** |
 | `comuna` | text | |
 | `contacto` | text | |
 | `created_at` | timestamptz | |
@@ -82,7 +92,31 @@ Durante el Lab, todos los datos son sintéticos.
 | `pseudonym_id` | uuid PK | Entrada al dominio clínico, sin PII |
 | `establecimiento_id` | uuid | |
 | `tramo_actual` | text | G0 · G1 · G2 · G3 — cache del estrato vigente |
+| `carril_actual` | text | agudo · cronico · dual — cache del carril vigente (Eje 1) |
 | `fecha_ingreso_ecicep` | date | |
+
+### `asignacion_carril` *(histórico inmutable — Eje 1)*
+
+El carril lo **define el profesional durante la atención**. El sistema no lo infiere ni lo
+deriva de un modelo (Principio II).
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `asignacion_id` | uuid PK | |
+| `pseudonym_id` | uuid FK | |
+| `carril` | text | `agudo` · `cronico` · `dual` |
+| `origen_agudo` | text | `post_alta_quirurgica` · `post_urgencia` · `post_hospitalizacion` — NULL si carril `cronico` |
+| `definido_por` | uuid FK | → `profesional`. **NOT NULL**: siempre lo asigna una persona |
+| `control_id` | uuid FK | → `control`. Atención en la que se definió |
+| `vigente_desde` | timestamptz | |
+| `vigente_hasta` | timestamptz | NULL = vigente |
+
+> **Nunca UPDATE.** Cambiar de carril (p. ej. cerrar el tránsito agudo y quedar solo en
+> `cronico`) cierra la asignación anterior y crea una nueva.
+
+`dual` no es un tercer carril excluyente: indica que las trayectorias aguda y crónica
+corren en paralelo. El paciente aparece en ambas vistas de la bandeja con **un solo**
+estado dinámico vigente.
 
 ### `condicion_cronica`
 
@@ -90,10 +124,14 @@ Durante el Lab, todos los datos son sintéticos.
 |-------|------|-------|
 | `condicion_id` | uuid PK | |
 | `pseudonym_id` | uuid FK | |
-| `cie10` | text | |
+| `cie10` | text | Codificación obligatoria — base del criterio de inclusión |
 | `nombre` | text | |
 | `fecha_diagnostico` | date | |
 | `activa` | boolean | **El conteo de activas determina el tramo** |
+
+> **Criterio de inclusión poblacional**: ≥ 2 condiciones activas al ingreso. Por eso la
+> cohorte se concentra en G2–G3; G0 y G1 se alcanzan por **regresión**
+> (estado `en_regresion` → deprescripción o resolución de una condición), no por ingreso.
 
 ### `estratificacion` *(histórico inmutable)*
 
@@ -177,21 +215,39 @@ Modulación por medicamentos (intensidad del seguimiento farmacoterapéutico):
 
 ## Capa Agente
 
-### `estado_dinamico` *(histórico — una fila por evaluación)*
+### `estado_dinamico` *(histórico — una fila por evaluación — Eje 2)*
 
 | Campo | Tipo | Notas |
 |-------|------|-------|
 | `estado_id` | uuid PK | |
 | `pseudonym_id` | uuid FK | |
-| `valor` | text | Ver PD-02 — valores por confirmar |
-| `probabilidades` | jsonb | Distribución del clasificador |
+| `valor` | text | Uno de los 5 estados — PD-02 resuelto |
+| `probabilidades` | jsonb | Distribución del clasificador sobre los 5 estados |
 | `incertidumbre` | numeric | Señal de escalamiento |
-| `evaluador` | text | determinista · modelo |
+| `evaluador` | text | determinista · modelo · **seed_sintetico** |
 | `modelo_usado` | text | NULL si determinista |
 | `generado_at` | timestamptz | |
 
-> Valores tentativos de `valor`: `en_meta`, `desviacion`, `alarma`. **Pendiente PD-02**:
-> Joaquín confirma nomenclatura y criterios de transición.
+**Los cinco estados y su acción asociada (PD-02 — resuelto):**
+
+| # | `valor` | Acción del sistema | ¿Genera alerta clínica? |
+|---|---------|--------------------|--------------------------|
+| 1 | `signo_alarma` | Reconsulta inmediata + alerta prioritaria en panel | Sí, prioritaria |
+| 2 | `descompensado` | Alerta a la dupla gestora para ajuste activo | Sí |
+| 3 | `compensado` | Acompañamiento de rutina + refuerzo de automanejo | No |
+| 4 | `en_regresion` | Notificar para evaluar deprescripción o alta | No — notificación, no alarma |
+| 5 | `perdida_contacto` | Contacto asistido, **sin sanción ni egreso** | Sí, de contacto asistido |
+
+> `perdida_contacto` **nunca** produce egreso del seguimiento ni registro de
+> incumplimiento (Constitución, Principio III).
+>
+> `evaluador = 'seed_sintetico'` marca estados **sembrados por el generador de cohorte**,
+> no evaluados por el clasificador. Existe para que la bandeja sea demostrable antes de
+> que el clasificador exista, sin mentir sobre quién evaluó (Principio VII). Ninguna
+> demo debe presentar esas filas como evaluación del sistema.
+>
+> **Sigue pendiente (PD-01, PD-04)**: las señales observables que alimentan al
+> clasificador y los umbrales de transición entre estos cinco estados.
 
 ### `interaccion_agente`
 
@@ -266,6 +322,7 @@ Contenido validado por el equipo clínico. Embebida con `voyage-4-large`,
 | `chunk_id` | uuid PK | |
 | `categoria` | text | plan_tramo · guia_ecicep · educacion_medicamento · faq · criterio_alarma · glosario |
 | `grupo_riesgo` | text | G0–G3, o NULL si aplica a todos |
+| `carril` | text | `agudo` · `cronico`, o NULL si aplica a ambos. Permite planes distintos para el tránsito post-agudo |
 | `titulo` | text | |
 | `contenido` | text | |
 | `fuente` | text | Cita exacta — Principio IV |
@@ -278,7 +335,7 @@ Contenido validado por el equipo clínico. Embebida con `voyage-4-large`,
 
 | Categoría | Contenido | Rol |
 |-----------|-----------|-----|
-| `plan_tramo` | Planes validados G1/G2/G3 (PD-03) | Lo que el agente recomienda |
+| `plan_tramo` | Planes validados G1/G2/G3 y plan de carril agudo (PD-03) | Lo que el agente recomienda |
 | `guia_ecicep` | Extractos citables ECICEP cap. 2 y 3 | Fundamenta respuestas generales |
 | `educacion_medicamento` | Qué es, para qué sirve — nunca dosis individual | Educación, no indicación |
 | `faq` | Preguntas frecuentes con respuesta aprobada | Cobertura sin generación libre |
@@ -326,14 +383,17 @@ I–IV) se verifican igual sin importar qué tan barato salió recuperar el cont
 
 ## Cohorte sintética (PD-07)
 
-El generador debe producir una distribución que cubra los cuatro tramos y permita
-demostrar los estados dinámicos.
+El generador debe producir una cohorte de **personas ≥ 65 años con 2+ condiciones activas**
+que cubra los **tres carriles** y los **cinco estados dinámicos**. Debe incluir además una
+minoría en G0/G1 alcanzada por regresión, para poder demostrar `en_regresion`.
 
 Parámetros a definir con Joaquín:
-- Distribución de nº de condiciones crónicas por paciente
+- Distribución de edad (≥ 65) y de nº de condiciones crónicas por paciente (mínimo 2)
 - Distribución de nº de medicamentos, correlacionada con el tramo
-- Proporción de pacientes en cada estado dinámico
-- Patrones de señales que representen desviación y alarma
+- Proporción público / privado (FONASA · ISAPRE)
+- Proporción por carril: `agudo`, `cronico`, `dual`, y origen del evento agudo
+- Proporción de pacientes en cada uno de los 5 estados dinámicos
+- Patrones de señales que representen `descompensado`, `signo_alarma` y `en_regresion`
 
 **Requisito de honestidad**: la cohorte no debe generarse con las mismas reglas que el
 clasificador luego "descubre". El MVP demuestra el mecanismo; la validación con datos
