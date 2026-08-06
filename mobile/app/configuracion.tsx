@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Bajada, Pantalla, Titulo } from '@/components/apheleia';
+import { MODO, describirFuente } from '@/lib/config';
 import { color, radius, space, touch, type } from '@/theme/tokens';
 
 /**
@@ -44,6 +45,16 @@ export default function Configuracion() {
         ))}
       </View>
 
+      <View style={styles.fuente}>
+        <Text style={styles.fuenteRotulo}>Origen de los datos</Text>
+        <Text style={styles.fuenteValor}>{describirFuente()}</Text>
+        {MODO === 'mock' ? (
+          <Text style={styles.fuenteNota}>
+            La información que ve es de ejemplo, no corresponde a una persona real.
+          </Text>
+        ) : null}
+      </View>
+
       <View style={styles.aviso}>
         <Text style={styles.avisoTexto}>
           Opciones de ejemplo. El contenido real está por definir.
@@ -83,6 +94,30 @@ const styles = StyleSheet.create({
   flecha: {
     fontSize: type.heading,
     color: color.inkMuted,
+  },
+  fuente: {
+    marginTop: space.md,
+    padding: space.md,
+    borderRadius: radius.card,
+    backgroundColor: color.surface,
+    borderWidth: 1,
+    borderColor: color.line,
+  },
+  fuenteRotulo: {
+    fontSize: type.label - 2,
+    color: color.inkMuted,
+    marginBottom: 2,
+  },
+  fuenteValor: {
+    fontSize: type.body,
+    color: color.ink,
+    fontWeight: '600',
+  },
+  fuenteNota: {
+    fontSize: type.label - 2,
+    color: color.inkMuted,
+    marginTop: space.xs,
+    lineHeight: (type.label - 2) * 1.45,
   },
   aviso: {
     marginTop: space.md,
