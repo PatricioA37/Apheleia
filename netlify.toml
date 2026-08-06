@@ -1,0 +1,17 @@
+# Despliegue del front paciente. Netlify construye desde `mobile/`.
+#
+# `mobile/app.json` declara `web.output: "static"`, así que el export genera un
+# HTML por ruta y las pretty URLs de Netlify los sirven directo
+# (`/alertas` → `alertas.html`). No hace falta regla de reescritura SPA.
+#
+# EXPO_PUBLIC_API_URL se define en la UI de Netlify, no acá: Expo la INLINEA en
+# el bundle durante el build, así que cambiarla exige un redeploy. Para volver a
+# datos de ejemplo sin rebuild, usar `?fuente=mock` en la URL del sitio.
+
+[build]
+  base = "mobile"
+  command = "npx expo export --platform web"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
