@@ -11,57 +11,80 @@ import {
   View,
 } from 'react-native';
 
-import { REPLICAS, conversacion as inicial, type Mensaje } from '@/data/mock';
+import { enviarMensaje } from '@/lib/api';
+import { conversacionInicial } from '@/lib/cliente-mock';
+import { PACIENTE_ID } from '@/lib/config';
+import type { Mensaje } from '@/lib/contratos';
 import { color, radius, space, touch, type } from '@/theme/tokens';
 
 /**
  * Conversar — la pantalla que más pesa en la evaluación del Lab.
  *
- * Acá es donde el sistema llama a Claude. Hoy la conversación es de ejemplo: el
- * endpoint `POST /api/paciente/{id}/chat` todavía no existe. Cuando exista, se
- * reemplaza `responder()` y la pantalla no cambia.
+ * Acá es donde el sistema llama a Claude, vía `POST /api/paciente/{id}/chat`.
  *
  * Guardrails visibles en esta pantalla:
  * - El agente deriva ante un signo de alarma, nunca interpreta el síntoma.
- * - Cita la fuente del contenido clínico, y declara que es un mock sin validar.
+ * - Cita la fuente del contenido clínico, y declara cuando es mock sin validar.
  * - Ante emergencia, deriva a SAMU 131 con un botón sólido, no con texto suelto.
+ *
+ * ⚠️ Si la llamada falla NO se inventa una réplica. Fabricar una respuesta del
+ * agente cuando el agente no respondió es exactamente lo que prohíbe el
+ * Principio IV. Se avisa de la falla de conexión y se deja el 131 a la vista.
  */
 export default function Chat() {
-  const [mensajes, setMensajes] = useState<Mensaje[]>(inicial);
+  const [mensajes, setMensajes] = useState<Mensaje[]>(conversacionInicial);
   const [texto, setTexto] = useState('');
+  const [enviando, setEnviando] = useState(false);
 
   function enviar() {
     const limpio = texto.trim();
-    if (limpio.length === 0) return;
+    if (limpio.length === 0 || enviando) return;
     responder(limpio);
     setTexto('');
   }
 
-  /**
-   * Agrega la respuesta del paciente y la réplica del agente.
-   *
-   * Hoy la réplica sale de un mapa fijo. Cuando exista
-   * `POST /api/paciente/{id}/chat`, se reemplaza esta función y la pantalla no
-   * cambia.
-   */
-  function responder(respuestaPaciente: string) {
-    const replica =
-      REPLICAS[respuestaPaciente] ?? 'Todavía no estoy conectada al equipo de salud.';
-    const esReplicaReal = respuestaPaciente in REPLICAS;
+  async function responder(mensajePaciente: string) {
+    setEnviando(true);
 
+    const n = mensajes.length;
+
+    // Consumida la pregunta, se retiran sus botones: no se responde dos veces.
     setMensajes((actual) => [
-      // Consumida la pregunta, se retiran sus botones: no se responde dos veces.
       ...actual.map((m) => (m.respuestas ? { ...m, respuestas: undefined } : m)),
-      { id: `u${actual.length}`, de: 'paciente', texto: respuestaPaciente },
-      {
-        id: `a${actual.length}`,
-        de: 'agente',
-        texto: replica,
-        fuente: esReplicaReal
-          ? undefined
-          : 'Respuesta de ejemplo — el agente real se conecta cuando exista el endpoint',
-      },
+      { id: `u${n}`, de: 'paciente', texto: mensajePaciente },
     ]);
+
+    try {
+      const r = await enviarMensaje(PACIENTE_ID, mensajePaciente);
+      setMensajes((actual) => [
+        ...actual,
+        {
+          id: `a${n}`,
+          de: 'agente',
+          texto: r.respuesta,
+          fuente: r.fuente,
+          derivacion: r.derivacion,
+          respuestas: r.respuestas,
+        },
+      ]);
+    } catch (e) {
+      console.error('[apheleia] fallo al enviar mensaje:', e);
+      // Aviso de sistema, NO una respuesta del agente: sin `fuente` clínica y
+      // con el 131 disponible por si la persona lo necesitaba ahora.
+      setMensajes((actual) => [
+        ...actual,
+        {
+          id: `e${n}`,
+          de: 'agente',
+          texto:
+            'No pude conectar con su equipo de salud. Su mensaje no se envió. ' +
+            'Si es urgente, llame al 131.',
+          derivacion: true,
+        },
+      ]);
+    } finally {
+      setEnviando(false);
+    }
   }
 
   return (
@@ -138,8 +161,13 @@ export default function Chat() {
           accessibilityRole="button"
           accessibilityLabel="Enviar mensaje"
           onPress={enviar}
-          style={({ pressed }) => [styles.enviar, pressed ? styles.enviarPress : null]}>
-          <Text style={styles.enviarTexto}>Enviar</Text>
+          disabled={enviando}
+          style={({ pressed }) => [
+            styles.enviar,
+            pressed ? styles.enviarPress : null,
+            enviando ? styles.enviarInactivo : null,
+          ]}>
+          <Text style={styles.enviarTexto}>{enviando ? 'Enviando…' : 'Enviar'}</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -270,6 +298,9 @@ const styles = StyleSheet.create({
   },
   enviarPress: {
     backgroundColor: color.accentPressed,
+  },
+  enviarInactivo: {
+    opacity: 0.5,
   },
   enviarTexto: {
     color: color.onAccent,
