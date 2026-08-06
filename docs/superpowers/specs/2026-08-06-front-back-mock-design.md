@@ -229,6 +229,64 @@ reintentar. El detalle va a consola.
 **Cero PII.** `data/mock.ts` sigue siendo 100% sintético. El identificador es
 `pseudonym_id`; no entra nombre, RUT ni dato de contacto en ninguna capa.
 
+## Despliegue en Netlify
+
+La app se despliega **sola**, sin depender de que el backend exista. Netlify
+construye desde `mobile/`; el despliegue de la rama lo hace Patricio.
+
+`app.json` ya trae `web.output: "static"`, así que el export genera un HTML por
+ruta y Netlify los sirve directo con sus pretty URLs (`/alertas` → `alertas.html`).
+No hace falta regla de reescritura SPA.
+
+```toml
+# netlify.toml (raíz del repo)
+[build]
+  base = "mobile"
+  command = "npx expo export --platform web"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+```
+
+`dist/` sigue en `.gitignore`: lo construye Netlify, no se commitea.
+
+### El problema del build-time y cómo se resuelve
+
+Expo **inlinea** `process.env.EXPO_PUBLIC_*` en el bundle durante el build. En un
+sitio estático eso significa que cambiar de API a mock exige un rebuild completo.
+
+Eso rompería la propiedad de seguridad de la sección de arquitectura —«si el
+backend se cae, se saca la variable y la demo sigue»—, que en Netlify dejaría de
+ser cierta justo cuando se necesita.
+
+`config.ts` resuelve la fuente en este orden, y **solo en web** añade el primer paso:
+
+1. `?fuente=mock` o `?fuente=api` en la URL, persistido en `localStorage`
+2. `EXPO_PUBLIC_API_URL` inlineado en el build
+3. Sin ninguno de los dos: mock
+
+Así, con el sitio ya desplegado, `…netlify.app/?fuente=mock` vuelve a mock al
+instante y sin rebuild. En nativo (iOS/Android) solo aplican los pasos 2 y 3.
+
+El indicador de modo va visible en `configuracion.tsx` —qué fuente está activa y
+contra qué URL— porque un demostrador que no sabe en qué modo está es un
+demostrador que va a afirmar algo falso frente al jurado.
+
+### Dos trampas que rompen el despliegue
+
+**HTTPS obligatorio.** Netlify sirve por HTTPS. Un backend en HTTP plano (una IP
+desnuda, un `uvicorn` local) queda bloqueado por mixed content: la app carga
+perfecta y no trae ningún dato. El backend tiene que estar detrás de TLS —túnel
+tipo Cloudflare/ngrok o un host con certificado— antes de apuntar la variable.
+
+**CORS.** FastAPI debe permitir explícitamente el origen del sitio Netlify vía
+`CORSMiddleware`. Sin eso el navegador bloquea toda respuesta, incluso con el
+backend sano y respondiendo 200.
+
+Ambas son del lado backend y van en su fase del plan, pero se documentan acá
+porque el síntoma aparece en el front y se diagnostica mal.
+
 ## Verificación
 
 `mobile/` no tiene runner de tests (`package.json` trae `start`, `lint`,
@@ -241,16 +299,34 @@ reintentar. El detalle va a consola.
 - **`npx expo lint`** — sin regresiones.
 - **Manual**: `npx expo start` sin `EXPO_PUBLIC_API_URL` (mock), y con la variable
   apuntando a un host inexistente para ejercitar los tres caminos de error.
+- **`npx expo export --platform web`** local antes de empujar a Netlify. Si el
+  export falla, el deploy falla igual pero con logs peores. Verificar que `dist/`
+  trae un HTML por ruta.
 
 Anotado para después, fuera de alcance: cuando exista FastAPI, un test de contrato
 que corra ambos adaptadores contra la misma batería de aserciones.
 
+## Fases
+
+El front se despliega y se demuestra desde la fase 1. El backend llega después sin
+tocar pantallas.
+
+1. **Capa de datos y pantallas** — `lib/`, `hooks/`, `data/` reformado, las siete
+   pantallas migradas a `api.ts`. Corre contra mock.
+2. **Despliegue** — `netlify.toml`, override de runtime, indicador de modo. El sitio
+   queda en línea, en modo mock, demostrable.
+3. **Backend** — endpoints FastAPI en `src/api/paciente.py` contra la cohorte
+   sintética de Supabase, con `CORSMiddleware` y TLS. Se apunta
+   `EXPO_PUBLIC_API_URL` y se rebuildea.
+4. **Contrato** — se actualiza `contracts/tools.md` y `tasks.md`, y se le avisa a
+   Jonathan. Va al final para que el aviso salga con la implementación ya en pie,
+   pero antes de integrar nada suyo encima.
+
 ## Fuera de alcance
 
-- Los endpoints FastAPI en `src/api/`. Este spec deja el front listo para
-  consumirlos; construirlos es trabajo aparte (T012, T017, T025, T044).
 - Autenticación. `PACIENTE_ID` viene de variable de entorno. Las tablas tienen RLS
-  deny-all y el backend hoy lee con `service_role`.
+  deny-all y el backend hoy lee con `service_role`. Esto es aceptable para una demo
+  con cohorte 100% sintética y **no** lo es para datos reales.
 - La interfaz clínica web (`web/`).
 - Contenido clínico real: PD-03 (planes) y PD-05 (signos de alarma) siguen mock y
   declarados como tales en pantalla.
