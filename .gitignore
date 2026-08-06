@@ -21,3 +21,11 @@ cohorte_sintetica.json
 .DS_Store
 *.log
 .env.bak
+
+# Documentos clinicos: se versionan SOLO los que estan en el CATALOGO de
+# src/data/index_documents.py. Lista blanca a proposito — un PDF nuevo queda
+# ignorado por defecto, para que nadie commitee 30 MB sin querer.
+docs/clinicos/*
+!docs/clinicos/5.-Marco-Operativo-Estrategia-Cuidado-Integral-Centrado-en-la-Persona-ECICEP-2025.pdf
+!docs/clinicos/MANUAL_LE_NO_GES2013.pdf
+!docs/clinicos/RSC-Vol2-Cap3.pdf
