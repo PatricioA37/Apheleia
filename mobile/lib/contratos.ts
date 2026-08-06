@@ -104,7 +104,7 @@ export interface ClienteApi {
 /** Sello obligatorio mientras el contenido no esté validado por un profesional. */
 export const SELLO_VALIDAR = 'Ejemplo — Validar por médico';
 
-export const FUENTE_PLAN = 'Contenido de ejemplo · MOCK — pendiente de validación profesional';
+export const FUENTE_PLAN = 'Contenido de ejemplo, pendiente de validación profesional.';
 
 /** Traduce la notación a lenguaje corriente. El paciente ve las dos cosas. */
 export function describirTomas(t: Tomas): string {

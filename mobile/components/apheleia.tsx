@@ -65,6 +65,59 @@ export function BotonGrande({
   );
 }
 
+/**
+ * Marca de «ya lo hice». Reversible: se toca de nuevo y se desmarca.
+ *
+ * Tres señales cambian a la vez —la casilla se llena, aparece el visto y la
+ * palabra cambia— porque el color no puede ser el único indicador. Alguien con
+ * daltonismo o con la pantalla al sol tiene que poder distinguirlo igual.
+ *
+ * Sin marcar NO es un error: no lleva rojo, ni advertencia, ni cuenta regresiva.
+ * El sistema acompaña, no fiscaliza (Principio III).
+ */
+export function Marcable({
+  marcado,
+  etiqueta,
+  etiquetaMarcada,
+  descripcion,
+  onPress,
+}: {
+  marcado: boolean;
+  etiqueta: string;
+  etiquetaMarcada: string;
+  descripcion: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: marcado }}
+      accessibilityLabel={descripcion}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.marcable,
+        marcado ? styles.marcableActivo : null,
+        pressed ? styles.marcablePresionado : null,
+      ]}>
+      <View style={[styles.casilla, marcado ? styles.casillaActiva : null]}>
+        {marcado ? <Text style={styles.visto}>✓</Text> : null}
+      </View>
+      <Text style={[styles.marcableTexto, marcado ? styles.marcableTextoActivo : null]}>
+        {marcado ? etiquetaMarcada : etiqueta}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** Encabezado de sección. Mismo peso para todas: ninguna es la secundaria. */
+export function Seccion({ children }: { children: ReactNode }) {
+  return (
+    <Text accessibilityRole="header" style={styles.seccion}>
+      {children}
+    </Text>
+  );
+}
+
 /** Nota de procedencia del contenido clínico. Obligatoria mientras sea mock. */
 export function Fuente({ children }: { children: ReactNode }) {
   return <Text style={styles.fuente}>{children}</Text>;
@@ -121,5 +174,63 @@ const styles = StyleSheet.create({
     color: color.inkMuted,
     marginTop: space.sm,
     lineHeight: (type.label - 2) * 1.4,
+  },
+  seccion: {
+    fontSize: type.heading,
+    fontWeight: '700',
+    color: color.ink,
+    marginTop: space.lg,
+    marginBottom: space.sm,
+  },
+  marcable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: touch.minHeight,
+    marginTop: space.md,
+    paddingHorizontal: space.md,
+    borderRadius: radius.button,
+    borderWidth: 2,
+    borderColor: color.line,
+    backgroundColor: color.bg,
+  },
+  marcableActivo: {
+    borderColor: color.ok,
+    backgroundColor: color.okBg,
+  },
+  marcablePresionado: {
+    borderColor: color.accent,
+  },
+  casilla: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: color.inkMuted,
+    backgroundColor: color.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: space.sm,
+  },
+  casillaActiva: {
+    borderColor: color.ok,
+    backgroundColor: color.ok,
+  },
+  visto: {
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '700',
+    color: color.onAccent,
+  },
+  marcableTexto: {
+    // `flex: 1` deja que el texto envuelva si la persona subió el tamaño de
+    // letra del sistema, en vez de salirse de la tarjeta.
+    flex: 1,
+    fontSize: type.button,
+    fontWeight: '600',
+    color: color.ink,
+    paddingVertical: space.sm,
+  },
+  marcableTextoActivo: {
+    color: color.ok,
   },
 });
