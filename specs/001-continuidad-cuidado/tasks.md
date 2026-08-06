@@ -117,11 +117,14 @@ la población entra con 2+ condiciones y solo llega a esos tramos por regresión
 
 **Vértice**: Jonathan (app) + Patricio (endpoints)
 
-- [ ] T015 [P] [US2] `POST /api/paciente/{id}/medicamentos` — crea indicación
-- [ ] T016 [P] [US2] `PATCH /api/paciente/{id}/medicamentos/{id}` — cierra la
-      anterior (`vigente_hasta`), crea nueva (nunca `UPDATE` in place)
+- [~] T015 [US2] ~~`POST /api/paciente/{id}/medicamentos`~~ — **obsoleta**: el
+      paciente no administra su lista de medicamentos (Principio I, acotación
+      clínica de Joaquín). Ver `contracts/tools.md`
+- [~] T016 [US2] ~~`PATCH /api/paciente/{id}/medicamentos/{id}`~~ — **obsoleta**,
+      misma razón que T015
 - [ ] T017 [P] [US2] `GET /api/paciente/{id}/controles` — historial cronológico
-- [ ] T018 [US2] Pantallas Expo: lista de medicamentos + formulario de registro
+- [~] T018 [US2] Pantallas Expo: lista de medicamentos ✅ + ~~formulario de
+      registro~~ **obsoleto**
 - [ ] T019 [US2] Pantalla Expo: historial de controles
 
 ---

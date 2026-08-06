@@ -120,8 +120,8 @@ chat, ni alertas, ni clasificador.
 
 ### User Story 2 — Registro de medicamentos y controles por el paciente (Priority: P1)
 
-El paciente (o su cuidador) registra sus medicamentos y consulta su historial de
-controles en una interfaz simple.
+El paciente (o su cuidador) consulta los medicamentos que su equipo de salud le indicó
+y su historial de controles en una interfaz simple.
 
 **Why this priority**: Es la fuente de las señales que alimentan todo lo demás, y el
 número de medicamentos modula la intensidad del seguimiento según ECICEP. Sin datos de

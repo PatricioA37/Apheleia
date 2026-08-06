@@ -351,11 +351,66 @@ endpoints vía `mobile/lib/api.ts`.
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | GET | `/api/paciente/{id}/perfil` | Carril, tramo, condiciones, resumen |
-| GET | `/api/paciente/{id}/medicamentos` | Lista vigente |
-| POST | `/api/paciente/{id}/medicamentos` | Registrar |
-| PATCH | `/api/paciente/{id}/medicamentos/{med_id}` | Actualizar (cierra el anterior, crea nuevo) |
+| GET | `/api/paciente/{id}/medicamentos` | Lista vigente (solo lectura) |
 | GET | `/api/paciente/{id}/controles` | Historial cronológico |
+| GET | `/api/paciente/{id}/plan` | Planes del tramo y carril |
+| GET | `/api/paciente/{id}/avisos` | Vista paciente de las alertas |
 | POST | `/api/paciente/{id}/chat` | Conversación con el agente |
+
+**`GET /api/paciente/{id}/medicamentos`**
+```json
+[
+  {
+    "id": "uuid",
+    "nombre": "Metformina",
+    "dosis": "850 mg",
+    "frecuencia": "cada 8 h",
+    "tomas": null
+  }
+]
+```
+
+`frecuencia` es texto y **canónico**. `tomas` es opcional: se puebla solo cuando
+la indicación viene en notación de posología (`1-0-1`), y es `null` en cualquier
+otro caso. Traducir «cada 8 horas» a mañana/mediodía/noche le mostraría al
+paciente un horario que su profesional no indicó (Principio IV). El front dibuja
+la grilla únicamente cuando `tomas` viene poblado.
+
+**`POST` y `PATCH` de medicamentos quedan retirados.** El paciente no administra
+su lista: las indicaciones las determina el profesional (Principio I). Las tareas
+T015, T016 y T018 quedan obsoletas.
+
+**`GET /api/paciente/{id}/plan`**
+```json
+{
+  "planes": [
+    {
+      "aplica_a": "cronico",
+      "titulo": "Plan de gestión de enfermedad — riesgo moderado",
+      "contenido": "…",
+      "fuente": "Biblioteca de planes validados — ECICEP",
+      "version": "1.0",
+      "validado": true
+    }
+  ]
+}
+```
+Un paciente `dual` recibe los planes de ambos carriles y el front los muestra
+separados, sin mezclarlos. `aplica_a` en `null` = aplica a los dos carriles.
+
+**`GET /api/paciente/{id}/avisos`**
+```json
+[
+  {
+    "id": "uuid",
+    "fecha": "timestamptz",
+    "motivo": "Cita del criterio que lo gatilló",
+    "revisado": true
+  }
+]
+```
+Vista paciente de `alerta_clinica`. `revisado` refleja validación humana. **No**
+expone severidad, destino ni estado dinámico: eso es información del equipo.
 
 ### Interfaz clínica — web (dupla gestora)
 
@@ -445,6 +500,8 @@ paciente `dual` aparece en **ambos** filtros; no se duplica su registro clínico
 | `recuperar_contexto_clinico` | Nuevo input `carril`; el filtro de biblioteca lo usa. |
 | `evaluar_criterio_derivacion` | Nuevo input `carril`; `estado` pasa a enum cerrado de 5 valores. |
 | `GET /api/clinica/bandeja` | Query param `carril`. Cada paciente trae `carril`, `origen_agudo` y `accion_asociada`. `resumen` pasa de plano a `{por_tramo, por_carril, por_estado}`. |
+| `GET /api/paciente/{id}/medicamentos` | Nuevo campo `tomas` (opcional, nullable) junto a `frecuencia`. `POST` y `PATCH` retirados. |
 
 **Nuevos** (no rompen nada): `consultar_carril`,
-`registrar_derivacion_emergencia`, `POST /api/clinica/paciente/{id}/carril`.
+`registrar_derivacion_emergencia`, `POST /api/clinica/paciente/{id}/carril`,
+`GET /api/paciente/{id}/plan`, `GET /api/paciente/{id}/avisos`.
