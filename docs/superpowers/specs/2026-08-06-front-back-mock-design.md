@@ -102,7 +102,8 @@ export type Medicamento = {
   id: string;
   nombre: string;
   dosis: string;
-  tomas: Tomas;
+  frecuencia: string;        // canónico — lo que dice la indicación
+  tomas: Tomas | null;       // solo si la posología cabe en tres tomas
   recomendacion?: string;
 };
 
@@ -175,13 +176,22 @@ prohibido: en modo HTTP, `chat.tsx` no tiene forma de alcanzarlo.
 
 Los tres primeros son de forma; el cuarto retira funcionalidad.
 
-1. **`frecuencia` → `tomas`** en `GET /api/paciente/{id}/medicamentos`. El campo
-   pasa de texto a `{ manana, mediodia, noche }`. El texto legible lo genera el
-   front con `describirTomas()`, que ya existe y se muda a `lib/contratos.ts`.
+1. **Se añade `tomas` junto a `frecuencia`** en `GET /api/paciente/{id}/medicamentos`.
+   `frecuencia` sigue siendo texto y canónico; `tomas` es opcional y nullable.
 
-   *Límite conocido y aceptado*: una posología tipo «cada 8 horas» o «según
-   necesidad» no cabe en tres casillas. Cuando aparezca un caso real, se amplía el
-   contrato. No se resuelve ahora.
+   El front dibuja la grilla solo cuando `tomas` viene poblado, y muestra el texto
+   de `frecuencia` cuando viene `null`.
+
+   *Por qué no se reemplazó `frecuencia` por `tomas`*: la cohorte sintética ya
+   siembra frecuencias tipo `"cada 8 h"`, `"cada 12 h"`, `"cada 24 h"`
+   (`src/data/loader.py:241`), y ninguna es una posología de tres tomas. Mapear
+   «cada 8 horas» a `{mañana 1, mediodía 1, noche 1}` le mostraría al paciente un
+   horario que su profesional **no** indicó — el sistema inventando especificidad
+   clínica, justo lo que prohíbe el Principio IV. `tomas` queda para cuando la
+   indicación venga en esa notación; mientras tanto es `null` y no se pierde nada.
+
+   `describirTomas()` se mantiene y se muda a `lib/contratos.ts`; solo se invoca
+   cuando `tomas !== null`.
 
 2. **Nuevo `GET /api/paciente/{id}/plan`** → `{ planes: PlanCarril[] }`.
 
@@ -318,6 +328,16 @@ tocar pantallas.
 3. **Backend** — endpoints FastAPI en `src/api/paciente.py` contra la cohorte
    sintética de Supabase, con `CORSMiddleware` y TLS. Se apunta
    `EXPO_PUBLIC_API_URL` y se rebuildea.
+
+   Antes hay que tapar dos huecos de la cohorte, o los endpoints devuelven vacío
+   con el backend perfectamente sano:
+   - `loader.py` siembra **un solo control** por paciente (modalidad `ingreso`).
+     La pantalla muestra historial y «próximo control»: hacen falta 3–4 controles
+     por paciente y uno con fecha futura.
+   - `loader.py` **no siembra ninguna `alerta_clinica`**, así que `/avisos`
+     devuelve vacío para los 200. Hacen falta alertas en pacientes cuyo
+     `estado_dinamico` las justifique (`signo_alarma`, `descompensado`,
+     `perdida_contacto`), unas validadas y otras pendientes.
 4. **Contrato** — se actualiza `contracts/tools.md` y `tasks.md`, y se le avisa a
    Jonathan. Va al final para que el aviso salga con la implementación ya en pie,
    pero antes de integrar nada suyo encima.
