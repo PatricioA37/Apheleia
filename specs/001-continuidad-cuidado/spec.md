@@ -118,7 +118,7 @@ chat, ni alertas, ni clasificador.
 
 ---
 
-### User Story 2 — Registro de medicamentos y controles por el paciente (Priority: P1)
+### User Story 2 — Consulta de medicamentos y controles por el paciente (Priority: P1)
 
 El paciente (o su cuidador) consulta los medicamentos que su equipo de salud le indicó
 y su historial de controles en una interfaz simple.
@@ -127,15 +127,18 @@ y su historial de controles en una interfaz simple.
 número de medicamentos modula la intensidad del seguimiento según ECICEP. Sin datos de
 entrada no hay estado dinámico.
 
-**Independent Test**: Un usuario registra 8 medicamentos → el sistema los persiste con
-histórico y el conteo queda disponible para modular la intensidad del seguimiento.
+**Independent Test**: Un paciente con 8 indicaciones vigentes abre su lista → las ve
+todas con dosis y frecuencia, y el conteo queda disponible para modular la intensidad
+del seguimiento.
 
 **Acceptance Scenarios**:
 
-1. **Given** un paciente autenticado, **When** registra un medicamento con dosis y
-   frecuencia, **Then** queda persistido con `vigente_desde` y visible en su lista.
-2. **Given** un paciente con medicamentos registrados, **When** modifica una dosis,
-   **Then** la indicación anterior se cierra con `vigente_hasta` y se crea una nueva.
+1. **Given** un paciente con indicaciones vigentes, **When** abre su lista de
+   medicamentos, **Then** ve cada una con la dosis y la frecuencia tal como su
+   profesional las indicó, y ninguna acción para agregarlas o editarlas.
+2. **Given** una indicación cuya frecuencia no es posología de tres tomas (por ejemplo
+   «cada 8 h»), **When** el paciente la consulta, **Then** ve el texto de la frecuencia
+   y **no** una grilla de tomas inferida por el sistema.
 3. **Given** un paciente con historial, **When** consulta sus controles, **Then** ve la
    secuencia cronológica con modalidad ECICEP de cada uno.
 
@@ -249,7 +252,11 @@ prioritaria dirigida al profesional, que queda pendiente hasta validación human
   crónicas activas, según criterio ECICEP, sin usar modelo de IA.
 - **FR-002**: El sistema DEBE mantener histórico inmutable de estratificaciones,
   indicaciones farmacológicas y estados. Ningún registro se sobrescribe.
-- **FR-003**: El sistema DEBE permitir al paciente registrar y actualizar medicamentos.
+- **FR-003**: El sistema DEBE exponer al paciente los medicamentos que su profesional le
+  indicó, en **solo lectura**. El paciente NO registra ni modifica indicaciones: eso lo
+  determina el profesional en la atención (Principio I — el sistema no prescribe ni
+  modifica dosis). La frecuencia se muestra tal como fue indicada; el sistema NUNCA
+  infiere un horario de tomas que la indicación no declara (Principio IV).
 - **FR-004**: El sistema DEBE exponer al paciente su historial de controles.
 - **FR-005**: El agente conversacional DEBE recuperar el perfil del paciente por
   embedding y comunicar el plan validado de su tramo.
